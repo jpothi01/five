@@ -1,38 +1,38 @@
 use std::convert::TryFrom;
 use std::fs;
 use std::io::{stdin, stdout, Write};
+use termion::cursor::DetectCursorPos;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 struct Config {
-    text_width: u16,
-    text_height: u16,
+    text_width: usize,
+    text_height: usize,
+    word_goal: usize,
 }
 
 impl Config {
     fn new() -> Config {
         Config {
-            text_width: 80u16,
-            text_height: 5u16,
+            text_width: 80,
+            text_height: 5,
+            word_goal: 10,
         }
     }
 }
 
-fn get_terminal_size() -> (u16, u16) {
-    let (width, height) = term_size::dimensions().unwrap();
-    (
-        u16::try_from(width).unwrap(),
-        u16::try_from(height).unwrap(),
-    )
+fn get_terminal_size() -> (usize, usize) {
+    term_size::dimensions().unwrap()
 }
 
-fn get_lines(buffer: &String, text_width: usize) -> Vec<String> {
+// Returns tuple of (lines, num_words)
+fn get_lines(buffer: &String, text_width: usize) -> (Vec<String>, usize) {
     let mut current_line = String::new();
     let mut lines: Vec<String> = Vec::new();
 
     let mut current_line_length = 0;
-
+    let mut num_words = 0;
     let mut remaining_buffer = &buffer[0..];
     while !remaining_buffer.is_empty() {
         // First step: copy whitespace
@@ -96,6 +96,7 @@ fn get_lines(buffer: &String, text_width: usize) -> Vec<String> {
             continue;
         }
 
+        num_words += 1;
         if current_line_length + word_chunk_length < text_width {
             current_line.extend(word_chunk.chars());
             current_line_length += word_chunk_length;
@@ -108,28 +109,38 @@ fn get_lines(buffer: &String, text_width: usize) -> Vec<String> {
 
     lines.push(current_line.clone());
 
-    return lines;
+    return (lines, num_words);
+}
+
+fn goal_achieved(config: &Config, num_words: usize) -> bool {
+    num_words >= config.word_goal
 }
 
 fn paint<Writer: Write>(
     stream: &mut Writer,
     buffer: &String,
     config: &Config,
-    terminal_size: (u16, u16),
 ) -> std::io::Result<()> {
     // TODO: bounds checking
-    let padding_x = (terminal_size.0 - config.text_width) / 2;
-    let padding_y = (terminal_size.1 - config.text_height) / 2;
+    let terminal_size = get_terminal_size();
+    let padding_x = u16::try_from((terminal_size.0 - config.text_width) / 2).unwrap();
+    let padding_y = u16::try_from((terminal_size.1 - config.text_height) / 2).unwrap();
+    let last_line = u16::try_from(terminal_size.1).unwrap();
+    let last_column = u16::try_from(terminal_size.0).unwrap();
 
-    write!(stream, "{}", termion::clear::All)?;
+    // Careful not to clear the "goal achieved" bar so it doesn't flicker.
+    write!(
+        stream,
+        "{}{}",
+        termion::cursor::Goto(1, last_line),
+        termion::clear::BeforeCursor
+    )?;
     write!(stream, "{}", termion::cursor::Goto(1, 1))?;
 
     let mut current_y = padding_y;
-    let text_width = config.text_width as usize;
-    let text_height = config.text_height as usize;
-    let lines = get_lines(&buffer, text_width);
-    let num_lines_to_skip = if lines.len() > text_height {
-        lines.len() - text_height
+    let (lines, num_words) = get_lines(&buffer, config.text_width);
+    let num_lines_to_skip = if lines.len() > config.text_height {
+        lines.len() - config.text_height
     } else {
         0
     };
@@ -143,6 +154,26 @@ fn paint<Writer: Write>(
         )?;
         current_y += 1;
     }
+
+    if goal_achieved(config, num_words) {
+        let stored_cursor_pos = stream.cursor_pos()?;
+        let color_goal_achieved = termion::color::Green;
+        write!(
+            stream,
+            "{}{}",
+            termion::cursor::Goto(1, last_line),
+            termion::color::Bg(color_goal_achieved),
+        )?;
+        write!(stream, "{}", " ".repeat(last_column as usize))?;
+        write!(stream, "{}", termion::cursor::Goto(last_column, last_line))?;
+        write!(
+            stream,
+            "{}{}",
+            termion::color::Bg(termion::color::Reset),
+            termion::cursor::Goto(stored_cursor_pos.0, stored_cursor_pos.1)
+        )?;
+    }
+
     stream.flush()
 }
 
@@ -159,7 +190,7 @@ fn run(config: Config) -> String {
 
     let mut buffer = String::new();
 
-    paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
+    paint(&mut stdout, &buffer, &config).unwrap();
 
     for c in stdin.keys() {
         match c.unwrap() {
@@ -170,14 +201,14 @@ fn run(config: Config) -> String {
             }
             Key::Char(c) => {
                 buffer.push(c);
-                paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
             }
             Key::Backspace => {
                 buffer.pop();
-                paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
             }
             _ => {}
         }
+
+        paint(&mut stdout, &buffer, &config).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();

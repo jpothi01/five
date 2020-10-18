@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 termion = "*"
 term_size = "*"
+chrono = "*"

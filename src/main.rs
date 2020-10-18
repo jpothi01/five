@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fs;
 use std::io::{stdin, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
@@ -145,12 +146,18 @@ fn paint<Writer: Write>(
     stream.flush()
 }
 
-fn main() {
+fn save(buffer: &String) -> std::io::Result<String> {
+    let filename = format!("draft_{}.txt", chrono::Local::now().format("%F_%H_%M_%S"));
+    fs::write(&filename, buffer.as_bytes())?;
+    Ok(filename)
+}
+
+fn run(config: Config) -> String {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
+    write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
 
     let mut buffer = String::new();
-    let config = Config::new();
 
     paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
 
@@ -173,5 +180,18 @@ fn main() {
         }
     }
 
-    write!(stdout, "{}", termion::cursor::Show).unwrap();
+    write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();
+    return buffer;
+}
+
+fn main() {
+    let buffer = run(Config::new());
+    if buffer.is_empty() {
+        return;
+    }
+
+    match save(&buffer) {
+        Ok(filename) => println!("Writing saved to '{}'", filename),
+        Err(err) => println!("Could not save file: {}", err),
+    };
 }

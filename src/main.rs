@@ -4,8 +4,6 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-type Cursor = (u16, u16);
-
 struct Config {
     text_width: u16,
     text_height: u16,
@@ -165,6 +163,10 @@ fn main() {
             }
             Key::Char(c) => {
                 buffer.push(c);
+                paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
+            }
+            Key::Backspace => {
+                buffer.pop();
                 paint(&mut stdout, &buffer, &config, get_terminal_size()).unwrap();
             }
             _ => {}

@@ -1,32 +1,32 @@
-use std::convert::TryFrom;
-use std::fs;
 use std::io::{stdin, stdout, Write};
 use structopt::StructOpt;
-use termion::cursor::DetectCursorPos;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-struct Config {}
+mod file_pane;
+mod file_view;
+mod terminal;
 
-fn get_terminal_size() -> (usize, usize) {
-    term_size::dimensions().unwrap()
-}
-fn paint<Writer: Write>(stream: &mut Writer) -> std::io::Result<()> {
-    // TODO: bounds checking
-    let terminal_size = get_terminal_size();
-
-    stream.flush()
-}
-
-fn run(config: &Config) -> String {
+fn run() -> String {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
     write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
 
     let mut buffer = String::new();
+    let file_pane_view_model = file_pane::ViewModel::new(".").unwrap();
+    file_pane::paint(&mut stdout, &file_pane_view_model).unwrap();
 
-    paint(&mut stdout).unwrap();
+    let rect = terminal::Rect {
+        left: 20u16,
+        top: 10u16,
+        width: 100u16,
+        height: 40u16,
+    };
+
+    let test_file = "Cargo.toml";
+    let file_view_model = file_view::ViewModel::new(test_file).unwrap();
+    file_view::paint(&mut stdout, rect, &file_view_model).unwrap();
 
     for c in stdin.keys() {
         match c.unwrap() {
@@ -43,8 +43,6 @@ fn run(config: &Config) -> String {
             }
             _ => {}
         }
-
-        paint(&mut stdout).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();
@@ -58,6 +56,5 @@ struct Options {}
 
 fn main() {
     let options = Options::from_args();
-    let config = Config {};
-    run(&config);
+    run();
 }

@@ -1,4 +1,4 @@
-use crate::terminal::get_terminal_size;
+use crate::terminal::{Rect, SPACES};
 use std::fs;
 use std::io::Write;
 
@@ -35,33 +35,60 @@ impl ViewModel {
     }
 }
 
-pub fn paint<Writer: Write>(stream: &mut Writer, view_model: &ViewModel) -> std::io::Result<()> {
-    let terminal_size = get_terminal_size();
-
-    let mut row = 1u16;
-    for item in &view_model.items {
+pub fn paint<Writer: Write>(
+    stream: &mut Writer,
+    rect: Rect,
+    view_model: &ViewModel,
+) -> std::io::Result<()> {
+    let mut row = rect.top;
+    for (index, item) in view_model.items.iter().enumerate() {
+        write!(stream, "{}", termion::cursor::Goto(1, row))?;
+        if view_model.selected_item_index.is_some()
+            && view_model.selected_item_index.unwrap() == index
+        {
+            write!(
+                stream,
+                "{}{}",
+                termion::color::Bg(termion::color::White),
+                termion::color::Fg(termion::color::Black)
+            )?;
+        } else {
+            match item {
+                FilePaneItem::File(_) => {
+                    write!(stream, "{}", termion::color::Fg(termion::color::White))?;
+                }
+                FilePaneItem::Folder(_) => {
+                    write!(stream, "{}", termion::color::Fg(termion::color::Green))?;
+                }
+            }
+        }
         match item {
             FilePaneItem::File(filename) => {
-                write!(
-                    stream,
-                    "{}{}{}",
-                    termion::cursor::Goto(1, row),
-                    termion::color::Fg(termion::color::White),
-                    filename
-                )?;
+                write!(stream, "{}", filename)?;
             }
             FilePaneItem::Folder(foldername) => {
-                write!(
-                    stream,
-                    "{}{}{}",
-                    termion::cursor::Goto(1, row),
-                    termion::color::Fg(termion::color::Green),
-                    foldername
-                )?;
+                write!(stream, "{}", foldername)?;
             }
         };
 
+        write!(
+            stream,
+            "{}{}",
+            termion::color::Fg(termion::color::Reset),
+            termion::color::Bg(termion::color::Reset)
+        )?;
+
         row += 1;
+    }
+
+    while row < rect.top + rect.height {
+        write!(
+            stream,
+            "{}{}",
+            termion::cursor::Goto(rect.left, row),
+            &SPACES[0..(rect.width as usize)]
+        )?;
+        row += 1
     }
 
     stream.flush()

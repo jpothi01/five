@@ -1,5 +1,7 @@
 use term_size;
 
+pub const SPACES: &str = "                                                                                                                                                                                                                                                                                                            ";
+
 pub fn get_terminal_size() -> (usize, usize) {
     term_size::dimensions().unwrap()
 }

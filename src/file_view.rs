@@ -1,9 +1,7 @@
-use crate::terminal::Rect;
+use crate::terminal::{Rect, SPACES};
 use std::fs;
 use std::io::Write;
 use termion;
-
-const SPACES: &str = "                                                                                                                                                                                                                                                                                                            ";
 
 pub struct ViewModel {
     content: String,

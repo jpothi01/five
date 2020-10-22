@@ -8,13 +8,17 @@ mod file_pane;
 mod file_view;
 mod terminal;
 
-fn run() -> String {
+enum View {
+    File,
+    FilePane,
+}
+
+fn run() {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
     write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
 
-    let mut buffer = String::new();
-    let file_pane_view_model = file_pane::ViewModel::new(".").unwrap();
+    let mut file_pane_view_model = file_pane::ViewModel::new(".").unwrap();
     file_pane::paint(&mut stdout, &file_pane_view_model).unwrap();
 
     let rect = terminal::Rect {
@@ -24,30 +28,37 @@ fn run() -> String {
         height: 40u16,
     };
 
-    let test_file = "Cargo.toml";
-    let file_view_model = file_view::ViewModel::new(test_file).unwrap();
-    file_view::paint(&mut stdout, rect, &file_view_model).unwrap();
+    let focused_view = View::FilePane;
 
     for c in stdin.keys() {
-        match c.unwrap() {
+        let key = c.unwrap();
+        match key {
             Key::Ctrl(c) => {
                 if c == 'c' {
                     break;
                 }
             }
-            Key::Char(c) => {
-                buffer.push(c);
-            }
-            Key::Backspace => {
-                buffer.pop();
-            }
-            _ => {}
+            _ => match focused_view {
+                View::FilePane => {
+                    file_pane::dispatch_key(&mut stdout, key, &mut file_pane_view_model)
+                }
+                _ => {}
+            },
         }
+
+        if let Some(index) = file_pane_view_model.selected_item_index {
+            match &file_pane_view_model.items[index] {
+                file_pane::FilePaneItem::File(filename) => {
+                    let file_view_model = file_view::ViewModel::new(filename).unwrap();
+                    file_view::paint(&mut stdout, rect, &file_view_model).unwrap();
+                }
+                _ => {}
+            };
+        }
+        file_pane::paint(&mut stdout, &file_pane_view_model).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();
-
-    return buffer;
 }
 
 #[derive(Debug, StructOpt)]

@@ -2,13 +2,15 @@ use crate::terminal::get_terminal_size;
 use std::fs;
 use std::io::Write;
 
-enum FilePaneItem {
+pub enum FilePaneItem {
     File(String),
     Folder(String),
 }
 
 pub struct ViewModel {
-    items: Vec<FilePaneItem>,
+    pub items: Vec<FilePaneItem>,
+    pub selected_item_index: Option<usize>,
+    pub is_focused: bool,
 }
 
 impl ViewModel {
@@ -25,7 +27,11 @@ impl ViewModel {
                 }
             }
         }
-        return Ok(ViewModel { items: items });
+        return Ok(ViewModel {
+            items: items,
+            selected_item_index: None,
+            is_focused: false,
+        });
     }
 }
 
@@ -59,4 +65,38 @@ pub fn paint<Writer: Write>(stream: &mut Writer, view_model: &ViewModel) -> std:
     }
 
     stream.flush()
+}
+
+pub fn dispatch_key<Writer: Write>(
+    stream: &mut Writer,
+    key: termion::event::Key,
+    view_model: &mut ViewModel,
+) {
+    match key {
+        termion::event::Key::Down => {
+            let next_item_index = match view_model.selected_item_index {
+                None => 0usize,
+                Some(index) => index + 1usize,
+            };
+            if next_item_index < view_model.items.len() {
+                view_model.selected_item_index = Some(next_item_index)
+            }
+        }
+        termion::event::Key::Up => {
+            let maybe_next_item_index = match view_model.selected_item_index {
+                None => None,
+                Some(index) => {
+                    if index > 0 {
+                        Some(index - 1usize)
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(next_item_index) = maybe_next_item_index {
+                view_model.selected_item_index = Some(next_item_index)
+            }
+        }
+        _ => {}
+    }
 }

@@ -3,6 +3,8 @@ use std::fs;
 use std::io::Write;
 use termion;
 
+const SPACES: &str = "                                                                                                                                                                                                                                                                                                            ";
+
 pub struct ViewModel {
     content: String,
 }
@@ -23,11 +25,27 @@ pub fn paint<Writer: Write>(
     let lines = view_model.content.lines();
     let mut row = 1u16;
     for line in lines {
+        let line_length = line.chars().count();
         write!(stream, "{}{}", termion::cursor::Goto(rect.left, row), line)?;
+        write!(
+            stream,
+            "{}",
+            &SPACES[0..(rect.width as usize - line_length)]
+        )?;
         row += 1;
         if row > rect.height {
             break;
         }
+    }
+
+    while row < rect.top + rect.height {
+        write!(
+            stream,
+            "{}{}",
+            termion::cursor::Goto(rect.left, row),
+            &SPACES[0..(rect.width as usize)]
+        )?;
+        row += 1
     }
 
     stream.flush()

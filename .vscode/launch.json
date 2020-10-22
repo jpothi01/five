@@ -7,39 +7,20 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'draft'",
+            "name": "Debug executable 'edit'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=draft",
-                    "--package=draft"
+                    "--bin=edit",
+                    "--package=edit"
                 ],
                 "filter": {
-                    "name": "draft",
+                    "name": "edit",
                     "kind": "bin"
                 }
             },
             "args": [],
             "cwd": "${workspaceFolder}"
         },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'draft'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=draft",
-                    "--package=draft"
-                ],
-                "filter": {
-                    "name": "draft",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        }
     ]
 }

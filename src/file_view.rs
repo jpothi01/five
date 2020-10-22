@@ -1,4 +1,5 @@
 use crate::terminal::{Rect, SPACES};
+use std::cmp::min;
 use std::fs;
 use std::io::Write;
 use termion;
@@ -23,13 +24,27 @@ pub fn paint<Writer: Write>(
     let lines = view_model.content.lines();
     let mut row = 1u16;
     for line in lines {
+        write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
+        // TODO: clean this up and centralize the logic
         let line_length = line.chars().count();
-        write!(stream, "{}{}", termion::cursor::Goto(rect.left, row), line)?;
-        write!(
-            stream,
-            "{}",
-            &SPACES[0..(rect.width as usize - line_length)]
-        )?;
+        if line_length < rect.width as usize {
+            write!(stream, "{}", line)?;
+            write!(
+                stream,
+                "{}",
+                &SPACES[0..(rect.width as usize - line_length)]
+            )?;
+        } else {
+            let truncated_length = min(line_length, rect.width as usize);
+            if let Some(last_char) = line.char_indices().take(truncated_length).last() {
+                write!(stream, "{}", &line[0..last_char.0])?;
+            }
+            write!(
+                stream,
+                "{}",
+                &SPACES[0..(rect.width as usize - truncated_length)]
+            )?;
+        }
         row += 1;
         if row > rect.height {
             break;

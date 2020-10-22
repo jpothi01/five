@@ -1,4 +1,5 @@
 use crate::terminal::{Rect, SPACES};
+use std::cmp::min;
 use std::fs;
 use std::io::Write;
 
@@ -42,7 +43,7 @@ pub fn paint<Writer: Write>(
 ) -> std::io::Result<()> {
     let mut row = rect.top;
     for (index, item) in view_model.items.iter().enumerate() {
-        write!(stream, "{}", termion::cursor::Goto(1, row))?;
+        write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
         if view_model.selected_item_index.is_some()
             && view_model.selected_item_index.unwrap() == index
         {
@@ -62,14 +63,16 @@ pub fn paint<Writer: Write>(
                 }
             }
         }
-        match item {
-            FilePaneItem::File(filename) => {
-                write!(stream, "{}", filename)?;
-            }
-            FilePaneItem::Folder(foldername) => {
-                write!(stream, "{}", foldername)?;
-            }
+        let line = match item {
+            FilePaneItem::File(filename) => filename,
+            FilePaneItem::Folder(foldername) => foldername,
         };
+        // TODO: this is wrong, do what file_view does
+        let line_length = line.chars().count();
+        let truncated_length = min(line_length, rect.width as usize);
+        if let Some(last_char) = line.char_indices().take(truncated_length).last() {
+            write!(stream, "{}", &line[0..=last_char.0])?;
+        }
 
         write!(
             stream,
@@ -86,7 +89,7 @@ pub fn paint<Writer: Write>(
             stream,
             "{}{}",
             termion::cursor::Goto(rect.left, row),
-            &SPACES[0..(rect.width as usize)]
+            &SPACES[0..(rect.width as usize - 1)]
         )?;
         row += 1
     }

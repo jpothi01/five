@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'edit'",
+            "name": "Debug executable 'five'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=edit",
-                    "--package=edit"
+                    "--bin=five",
+                    "--package=five"
                 ],
                 "filter": {
-                    "name": "edit",
+                    "name": "five",
                     "kind": "bin"
                 }
             },

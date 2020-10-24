@@ -70,7 +70,7 @@ fn run() {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "edit", about = "A brutal text editor.")]
+#[structopt(name = "five", about = "A brutal text editor.")]
 struct Options {}
 
 fn main() {

@@ -13,14 +13,16 @@ pub struct RootComponent {
 impl RootComponent {
     pub fn new(cwd: &str) -> RootComponent {
         RootComponent {
-            indexer: Indexer::new(),
+            indexer: Indexer::new(cwd),
             file_pane: FilePaneComponent::new(cwd).unwrap(),
         }
     }
 
     fn start_quick_open(&mut self) {
-        let index = self.indexer.get_index();
-        self.file_pane.start_quick_open(index);
+        match self.indexer.get_index() {
+            Err(err) => println!("Could not get index: {}", err.message),
+            Ok(index) => self.file_pane.start_quick_open(index),
+        }
     }
 }
 

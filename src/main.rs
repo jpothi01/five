@@ -33,8 +33,7 @@ fn run() {
         height: terminal_height - 2 * margin,
     };
 
-    let mut root_component =
-        components::root::RootComponent::new("/Users/john/code/writing/content");
+    let mut root_component = components::root::RootComponent::new("/Users/john/code/edit");
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 

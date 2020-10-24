@@ -1,3 +1,4 @@
+use components::component::Component;
 use std::convert::TryFrom;
 use std::io::{stdin, stdout, Write};
 use structopt::StructOpt;
@@ -5,9 +6,10 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+mod components;
 mod divider;
-mod file_pane;
 mod file_view;
+mod indexer;
 mod terminal;
 
 enum View {
@@ -24,60 +26,44 @@ fn run() {
     let terminal_width = u16::try_from(terminal_size.0).unwrap();
     let terminal_height = u16::try_from(terminal_size.1).unwrap();
     let margin = 2u16;
-    let file_pane_rect = terminal::Rect {
+    let root_rect = terminal::Rect {
         left: margin,
         top: margin,
-        width: 20,
-        height: terminal_height - 2 * margin,
-    };
-    let divider_rect = terminal::Rect {
-        left: file_pane_rect.width + 1,
-        top: 0,
-        width: 1,
-        height: terminal_height,
-    };
-    let file_view_rect = terminal::Rect {
-        left: margin + file_pane_rect.width + divider_rect.width,
-        top: margin,
-        width: terminal_width - file_pane_rect.width - margin,
+        width: terminal_width - 2 * margin,
         height: terminal_height - 2 * margin,
     };
 
-    divider::paint(&mut stdout, divider_rect).unwrap();
+    let mut root_component =
+        components::root::RootComponent::new("/Users/john/code/writing/content");
 
-    let mut file_pane_view_model =
-        file_pane::ViewModel::new("/Users/john/code/writing/content").unwrap();
-    file_pane::paint(&mut stdout, file_pane_rect, &file_pane_view_model).unwrap();
-
-    let focused_view = View::FilePane;
+    root_component.paint(&mut stdout, root_rect).unwrap();
 
     for c in stdin.keys() {
         let key = c.unwrap();
+
         match key {
             Key::Ctrl(c) => {
                 if c == 'c' {
                     break;
                 }
             }
-            _ => match focused_view {
-                View::FilePane => {
-                    file_pane::dispatch_key(&mut stdout, key, &mut file_pane_view_model)
-                }
-                _ => {}
-            },
+            _ => {}
         }
 
-        if let Some(index) = file_pane_view_model.selected_item_index {
-            match &file_pane_view_model.items[index] {
-                file_pane::FilePaneItem::File(filename) => {
-                    let file_path = format!("/Users/john/code/writing/content/{}", filename);
-                    let file_view_model = file_view::ViewModel::new(&file_path).unwrap();
-                    file_view::paint(&mut stdout, file_view_rect, &file_view_model).unwrap();
-                }
-                _ => {}
-            };
-        }
-        file_pane::paint(&mut stdout, file_pane_rect, &file_pane_view_model).unwrap();
+        root_component.dispatch_key(key);
+        root_component.paint(&mut stdout, root_rect).unwrap();
+
+        // if let Some(index) = file_pane_view_model.selected_item_index {
+        //     match &file_pane_view_model.items[index] {
+        //         file_pane::FilePaneItem::File(filename) => {
+        //             let file_path = format!("/Users/john/code/writing/content/{}", filename);
+        //             let file_view_model = file_view::ViewModel::new(&file_path).unwrap();
+        //             file_view::paint(&mut stdout, file_view_rect, &file_view_model).unwrap();
+        //         }
+        //         _ => {}
+        //     };
+        // }
+        // file_pane::paint(&mut stdout, file_pane_rect, &file_pane_view_model).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();

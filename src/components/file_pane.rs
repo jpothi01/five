@@ -1,5 +1,6 @@
 use crate::components::component::Component;
 use crate::indexer::Index;
+use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::{Rect, SPACES};
 use std::cmp::min;
 use std::fs;
@@ -11,50 +12,76 @@ enum FilePaneItem {
     Folder(String),
 }
 
-enum FilePaneMode {
-    DirectoryTree,
-    QuickOpen,
-}
-
-pub struct FilePaneComponent {
-    items: Vec<FilePaneItem>,
-    selected_item_index: Option<usize>,
+struct QuickOpenComponent {
+    search_query: String,
     index: Option<Index>,
-    mode: FilePaneMode,
+    results: Vec<QuickOpenResult>,
 }
 
-impl FilePaneComponent {
-    pub fn new(cwd: &str) -> std::io::Result<FilePaneComponent> {
-        let mut items: Vec<FilePaneItem> = Vec::new();
-        for entry in fs::read_dir(cwd)? {
-            if let Ok(entry) = entry {
-                let file_type = entry.file_type()?;
-                let file_name = entry.file_name().into_string().unwrap();
-                if file_type.is_file() {
-                    items.push(FilePaneItem::File(file_name));
-                } else if file_type.is_dir() {
-                    items.push(FilePaneItem::Folder(file_name));
-                }
+impl QuickOpenComponent {
+    fn update_quick_open_results(&mut self) {
+        match &self.index {
+            Some(index) => {
+                self.results = get_quick_open_results(&index, &self.search_query);
             }
+            None => {}
+        };
+    }
+}
+
+impl Component for QuickOpenComponent {
+    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+        write!(
+            stream,
+            "{}{}",
+            termion::clear::All,
+            termion::cursor::Goto(rect.left, rect.top)
+        )?;
+        write!(stream, "{}", self.search_query)?;
+
+        let mut row = rect.top + 1;
+
+        for result in &self.results {
+            write!(
+                stream,
+                "{}{}",
+                termion::cursor::Goto(rect.left, row),
+                result.path.file_name().unwrap().to_str().unwrap()
+            )?;
+            if row >= rect.height {
+                break;
+            }
+
+            row += 1;
         }
-        return Ok(FilePaneComponent {
-            items: items,
-            selected_item_index: None,
-            index: None,
-            mode: FilePaneMode::DirectoryTree,
-        });
+
+        Ok(())
     }
 
-    pub fn start_quick_open(&mut self, index: Index) {
-        self.index = Some(index);
-        self.mode = FilePaneMode::QuickOpen;
+    fn dispatch_key(&mut self, key: Key) -> bool {
+        match key {
+            Key::Char(c) => {
+                self.search_query.push(c);
+                self.update_quick_open_results();
+                true
+            }
+            Key::Backspace => {
+                self.search_query.pop();
+                self.update_quick_open_results();
+                true
+            }
+            _ => false,
+        }
     }
+}
 
-    fn paint_directory_tree<Writer: Write>(
-        &self,
-        stream: &mut Writer,
-        rect: Rect,
-    ) -> std::io::Result<()> {
+struct DirectoryTreeComponent {
+    selected_item_index: Option<usize>,
+    items: Vec<FilePaneItem>,
+}
+
+impl Component for DirectoryTreeComponent {
+    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         let mut row = rect.top;
         for (index, item) in self.items.iter().enumerate() {
             write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
@@ -105,41 +132,8 @@ impl FilePaneComponent {
         stream.flush()
     }
 
-    fn paint_quick_open<Writer: Write>(
-        &self,
-        stream: &mut Writer,
-        rect: Rect,
-    ) -> std::io::Result<()> {
-        write!(
-            stream,
-            "{}{}",
-            termion::clear::All,
-            termion::cursor::Goto(1, 1)
-        )?;
-        write!(
-            stream,
-            "Number of files: {}",
-            self.index.as_ref().unwrap().files.len()
-        )
-    }
-}
-
-impl Component for FilePaneComponent {
-    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
-        match self.mode {
-            FilePaneMode::DirectoryTree => self.paint_directory_tree(stream, rect),
-            FilePaneMode::QuickOpen => self.paint_quick_open(stream, rect),
-        }
-    }
     fn dispatch_key(&mut self, key: Key) -> bool {
         match key {
-            Key::Esc => match self.mode {
-                FilePaneMode::QuickOpen => {
-                    self.mode = FilePaneMode::DirectoryTree;
-                    true
-                }
-                _ => false,
-            },
             Key::Down => {
                 let next_item_index = match self.selected_item_index {
                     None => 0usize,
@@ -167,6 +161,77 @@ impl Component for FilePaneComponent {
                 true
             }
             _ => false,
+        }
+    }
+}
+
+enum FilePaneMode {
+    DirectoryTree,
+    QuickOpen,
+}
+
+pub struct FilePaneComponent {
+    directory_tree: DirectoryTreeComponent,
+    quick_open: QuickOpenComponent,
+    mode: FilePaneMode,
+}
+
+impl FilePaneComponent {
+    pub fn new(cwd: &str) -> std::io::Result<FilePaneComponent> {
+        let mut items: Vec<FilePaneItem> = Vec::new();
+        for entry in fs::read_dir(cwd)? {
+            if let Ok(entry) = entry {
+                let file_type = entry.file_type()?;
+                let file_name = entry.file_name().into_string().unwrap();
+                if file_type.is_file() {
+                    items.push(FilePaneItem::File(file_name));
+                } else if file_type.is_dir() {
+                    items.push(FilePaneItem::Folder(file_name));
+                }
+            }
+        }
+        return Ok(FilePaneComponent {
+            directory_tree: DirectoryTreeComponent {
+                selected_item_index: None,
+                items: items,
+            },
+            quick_open: QuickOpenComponent {
+                search_query: String::new(),
+                index: None,
+                results: vec![],
+            },
+            mode: FilePaneMode::DirectoryTree,
+        });
+    }
+
+    pub fn start_quick_open(&mut self, index: Index) {
+        self.quick_open.index = Some(index);
+        self.mode = FilePaneMode::QuickOpen;
+    }
+}
+
+impl Component for FilePaneComponent {
+    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+        match self.mode {
+            FilePaneMode::DirectoryTree => self.directory_tree.paint(stream, rect),
+            FilePaneMode::QuickOpen => self.quick_open.paint(stream, rect),
+        }
+    }
+    fn dispatch_key(&mut self, key: Key) -> bool {
+        match key {
+            Key::Esc => match self.mode {
+                FilePaneMode::QuickOpen => {
+                    self.mode = FilePaneMode::DirectoryTree;
+                    return true;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
+        match self.mode {
+            FilePaneMode::DirectoryTree => self.directory_tree.dispatch_key(key),
+            FilePaneMode::QuickOpen => self.quick_open.dispatch_key(key),
         }
     }
 }

@@ -10,6 +10,7 @@ mod components;
 mod divider;
 mod file_view;
 mod indexer;
+mod quick_open;
 mod terminal;
 
 enum View {

@@ -8,8 +8,9 @@ use std::thread;
 
 #[derive(Clone)]
 pub struct FileIndexEntry {
-    metadata: Metadata,
-    path: PathBuf,
+    pub metadata: Metadata,
+    pub path: PathBuf,
+    pub normalized_filename: String,
 }
 
 #[derive(Clone)]
@@ -69,9 +70,20 @@ impl BackgroundThreadState {
             match self.index.lock() {
                 Err(_) => return Err(IndexError::new("Could not acquire lock")),
                 Ok(mut index) => {
+                    let normalized_filename = match path.file_name() {
+                        Some(file_name) => match file_name.to_str() {
+                            Some(file_name) => Some(file_name.to_lowercase()),
+                            None => None,
+                        },
+                        None => None,
+                    };
+                    if normalized_filename.is_none() {
+                        return Err(IndexError::new("Could not get file name"));
+                    }
                     index.deref_mut().files.push(FileIndexEntry {
                         metadata: metadata,
                         path: path,
+                        normalized_filename: normalized_filename.unwrap(),
                     });
                 }
             };

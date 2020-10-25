@@ -37,10 +37,12 @@ impl RootComponent {
         match std::fs::read_to_string(&index_entry.path) {
             Err(err) => {
                 // TODO: smart error handling for non-utf-8 strings
+                self.file_view
+                    .set_binary_file_content(index_entry.path.as_path());
             }
             Ok(content) => {
                 self.file_view
-                    .set_file_content(index_entry.file_name.clone(), content);
+                    .set_text_file_content(index_entry.path.as_path(), content);
             }
         }
     }
@@ -52,7 +54,7 @@ impl Component for RootComponent {
         let file_pane_rect = Rect {
             left: 1,
             top: 1,
-            width: 20,
+            width: 32,
             height: rect.height,
         };
         let divider_rect = Rect {

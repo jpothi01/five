@@ -49,9 +49,9 @@ fn run(config: Config) {
         }
 
         root_component.dispatch_key(key);
-        root_component.paint(&mut stdout, root_rect).unwrap();
         let events = root_component.get_events();
         root_component.dispatch_events(&events);
+        root_component.paint(&mut stdout, root_rect).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();

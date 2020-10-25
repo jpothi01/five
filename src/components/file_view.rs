@@ -3,11 +3,13 @@ use crate::event::Event;
 use crate::terminal::{Rect, SPACES};
 use std::cmp::min;
 use std::io::Write;
+use std::path::Path;
 use termion;
 
 pub struct FileViewComponent {
     content: String,
     file_name: String,
+    file_path: String,
 }
 
 impl FileViewComponent {
@@ -15,20 +17,34 @@ impl FileViewComponent {
         FileViewComponent {
             content: String::new(),
             file_name: String::new(),
+            file_path: String::new(),
         }
     }
 
-    pub fn set_file_content(&mut self, file_name: String, content: String) {
+    pub fn set_text_file_content(&mut self, file_path: &Path, content: String) {
         self.content = content;
-        self.file_name = file_name;
+        self.file_path = String::from(file_path.to_str().unwrap_or(""));
+    }
+
+    pub fn set_binary_file_content(&mut self, file_path: &Path) {
+        self.content = String::from("<binary file>");
+        self.file_path = String::from(file_path.to_str().unwrap_or(""));
     }
 }
 
 impl Component for FileViewComponent {
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+        write!(stream, "{}", termion::color::Fg(termion::color::Yellow))?;
+        write!(
+            stream,
+            "{}{}",
+            termion::cursor::Goto(rect.left, rect.top),
+            self.file_path
+        )?;
         write!(stream, "{}", termion::color::Fg(termion::color::White))?;
         let lines = self.content.lines();
-        let mut row = 1u16;
+
+        let mut row = rect.top + 1;
         for line in lines {
             write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
             // TODO: clean this up and centralize the logic

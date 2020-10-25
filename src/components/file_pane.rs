@@ -110,45 +110,48 @@ impl Component for QuickOpenComponent {
         Ok(())
     }
 
-    fn dispatch_key(&mut self, key: Key) -> bool {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
         self.events.clear();
-        let handled = match key {
-            Key::Char(c) => {
-                self.search_query.push(c);
-                self.update_quick_open_results();
-                true
-            }
-            Key::Backspace => {
-                self.search_query.pop();
-                self.update_quick_open_results();
-                true
-            }
-            Key::Down => {
-                let next_item_index = match self.selected_item_index {
-                    None => 0usize,
-                    Some(index) => index + 1usize,
-                };
-                if next_item_index < self.results.len() {
-                    self.selected_item_index = Some(next_item_index);
-                };
-                true
-            }
-            Key::Up => {
-                let maybe_next_item_index = match self.selected_item_index {
-                    None => None,
-                    Some(index) => {
-                        if index > 0 {
-                            Some(index - 1usize)
-                        } else {
-                            None
+        let handled = match event {
+            termion::event::Event::Key(key) => match key {
+                Key::Char(c) => {
+                    self.search_query.push(c);
+                    self.update_quick_open_results();
+                    true
+                }
+                Key::Backspace => {
+                    self.search_query.pop();
+                    self.update_quick_open_results();
+                    true
+                }
+                Key::Down => {
+                    let next_item_index = match self.selected_item_index {
+                        None => 0usize,
+                        Some(index) => index + 1usize,
+                    };
+                    if next_item_index < self.results.len() {
+                        self.selected_item_index = Some(next_item_index);
+                    };
+                    true
+                }
+                Key::Up => {
+                    let maybe_next_item_index = match self.selected_item_index {
+                        None => None,
+                        Some(index) => {
+                            if index > 0 {
+                                Some(index - 1usize)
+                            } else {
+                                None
+                            }
                         }
-                    }
-                };
-                if let Some(next_item_index) = maybe_next_item_index {
-                    self.selected_item_index = Some(next_item_index);
-                };
-                true
-            }
+                    };
+                    if let Some(next_item_index) = maybe_next_item_index {
+                        self.selected_item_index = Some(next_item_index);
+                    };
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         };
         if let Some(selected_index) = self.selected_item_index {
@@ -222,34 +225,37 @@ impl Component for DirectoryTreeComponent {
         stream.flush()
     }
 
-    fn dispatch_key(&mut self, key: Key) -> bool {
-        match key {
-            Key::Down => {
-                let next_item_index = match self.selected_item_index {
-                    None => 0usize,
-                    Some(index) => index + 1usize,
-                };
-                if next_item_index < self.items.len() {
-                    self.selected_item_index = Some(next_item_index)
-                };
-                true
-            }
-            Key::Up => {
-                let maybe_next_item_index = match self.selected_item_index {
-                    None => None,
-                    Some(index) => {
-                        if index > 0 {
-                            Some(index - 1usize)
-                        } else {
-                            None
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+        match event {
+            termion::event::Event::Key(key) => match key {
+                Key::Down => {
+                    let next_item_index = match self.selected_item_index {
+                        None => 0usize,
+                        Some(index) => index + 1usize,
+                    };
+                    if next_item_index < self.items.len() {
+                        self.selected_item_index = Some(next_item_index)
+                    };
+                    true
+                }
+                Key::Up => {
+                    let maybe_next_item_index = match self.selected_item_index {
+                        None => None,
+                        Some(index) => {
+                            if index > 0 {
+                                Some(index - 1usize)
+                            } else {
+                                None
+                            }
                         }
-                    }
-                };
-                if let Some(next_item_index) = maybe_next_item_index {
-                    self.selected_item_index = Some(next_item_index)
-                };
-                true
-            }
+                    };
+                    if let Some(next_item_index) = maybe_next_item_index {
+                        self.selected_item_index = Some(next_item_index)
+                    };
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -308,21 +314,24 @@ impl Component for FilePaneComponent {
             FilePaneMode::QuickOpen => self.quick_open.paint(stream, rect),
         }
     }
-    fn dispatch_key(&mut self, key: Key) -> bool {
-        match key {
-            Key::Esc => match self.mode {
-                FilePaneMode::QuickOpen => {
-                    self.mode = FilePaneMode::DirectoryTree;
-                    return true;
-                }
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+        match event {
+            termion::event::Event::Key(key) => match key {
+                Key::Esc => match self.mode {
+                    FilePaneMode::QuickOpen => {
+                        self.mode = FilePaneMode::DirectoryTree;
+                        return true;
+                    }
+                    _ => {}
+                },
                 _ => {}
             },
             _ => {}
         }
 
         match self.mode {
-            FilePaneMode::DirectoryTree => self.directory_tree.dispatch_key(key),
-            FilePaneMode::QuickOpen => self.quick_open.dispatch_key(key),
+            FilePaneMode::DirectoryTree => self.directory_tree.dispatch_event(event),
+            FilePaneMode::QuickOpen => self.quick_open.dispatch_event(event),
         }
     }
 

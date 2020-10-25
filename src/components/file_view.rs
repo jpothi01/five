@@ -86,7 +86,7 @@ impl Component for FileViewComponent {
         stream.flush()
     }
 
-    fn dispatch_key(&mut self, key: termion::event::Key) -> bool {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
         false
     }
 

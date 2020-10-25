@@ -5,7 +5,7 @@ use std::io::Write;
 pub trait Component {
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()>;
 
-    fn dispatch_key(&mut self, key: termion::event::Key) -> bool;
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool;
 
     fn get_events(&self) -> Vec<Event>;
 

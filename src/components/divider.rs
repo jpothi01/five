@@ -24,7 +24,7 @@ impl Component for DividerComponent {
         write!(stream, "{}", termion::color::Bg(termion::color::Reset))
     }
 
-    fn dispatch_key(&mut self, key: termion::event::Key) -> bool {
+    fn dispatch_event(&mut self, key: termion::event::Event) -> bool {
         false
     }
     fn get_events(&self) -> Vec<Event> {

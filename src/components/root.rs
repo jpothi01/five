@@ -75,19 +75,24 @@ impl Component for RootComponent {
         stream.flush()
     }
 
-    fn dispatch_key(&mut self, key: Key) -> bool {
-        if self.file_pane.dispatch_key(key) {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+        if self.file_pane.dispatch_event(event.clone()) {
             return true;
         }
-        match key {
-            Key::Ctrl(c) => {
-                if c == 'p' {
-                    self.start_quick_open()
+        match event {
+            termion::event::Event::Key(key) => match key {
+                Key::Ctrl(c) => {
+                    if c == 'p' {
+                        self.start_quick_open();
+                        true
+                    } else {
+                        false
+                    }
                 }
-            }
-            _ => {}
-        };
-        true
+                _ => false,
+            },
+            _ => false,
+        }
     }
 
     fn get_events(&self) -> Vec<Event> {

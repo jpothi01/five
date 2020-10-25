@@ -2,7 +2,11 @@ use components::component::Component;
 use std::convert::TryFrom;
 use std::io::{stdin, stdout, Write};
 use structopt::StructOpt;
+use termion::event::Event;
 use termion::event::Key;
+use termion::event::MouseButton;
+use termion::event::MouseEvent;
+use termion::input::MouseTerminal;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
@@ -18,7 +22,7 @@ struct Config {
 
 fn run(config: Config) {
     let stdin = stdin();
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut stdout = MouseTerminal::from(std::io::stdout().into_raw_mode().unwrap());
     write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
 
     let terminal_size = terminal::get_terminal_size();
@@ -36,19 +40,22 @@ fn run(config: Config) {
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 
-    for c in stdin.keys() {
-        let key = c.unwrap();
+    for c in stdin.events() {
+        let event = c.unwrap();
 
-        match key {
-            Key::Ctrl(c) => {
-                if c == 'c' {
-                    break;
+        match event {
+            Event::Key(key) => match key {
+                Key::Ctrl(c) => {
+                    if c == 'c' {
+                        break;
+                    }
                 }
-            }
+                _ => {}
+            },
             _ => {}
         }
 
-        root_component.dispatch_key(key);
+        root_component.dispatch_event(event);
         let events = root_component.get_events();
         root_component.dispatch_events(&events);
         root_component.paint(&mut stdout, root_rect).unwrap();

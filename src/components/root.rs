@@ -1,5 +1,6 @@
 use crate::components::component::Component;
 use crate::components::file_pane::FilePaneComponent;
+use crate::components::file_view::FileViewComponent;
 use crate::indexer::Indexer;
 use crate::terminal::Rect;
 use std::io::Write;
@@ -8,6 +9,7 @@ use termion::event::Key;
 pub struct RootComponent {
     indexer: Indexer,
     file_pane: FilePaneComponent,
+    file_view: FileViewComponent,
 }
 
 impl RootComponent {
@@ -15,6 +17,7 @@ impl RootComponent {
         RootComponent {
             indexer: Indexer::new(cwd),
             file_pane: FilePaneComponent::new(cwd).unwrap(),
+            file_view: FileViewComponent::new(),
         }
     }
 
@@ -47,6 +50,7 @@ impl Component for RootComponent {
             height: rect.height,
         };
         self.file_pane.paint(stream, file_pane_rect)?;
+        self.file_view.paint(stream, file_view_rect)?;
         stream.flush()
     }
 

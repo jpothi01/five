@@ -8,15 +8,9 @@ use termion::raw::IntoRawMode;
 
 mod components;
 mod divider;
-mod file_view;
 mod indexer;
 mod quick_open;
 mod terminal;
-
-enum View {
-    File,
-    FilePane,
-}
 
 struct Config {
     cwd: String,
@@ -56,18 +50,6 @@ fn run(config: Config) {
 
         root_component.dispatch_key(key);
         root_component.paint(&mut stdout, root_rect).unwrap();
-
-        // if let Some(index) = file_pane_view_model.selected_item_index {
-        //     match &file_pane_view_model.items[index] {
-        //         file_pane::FilePaneItem::File(filename) => {
-        //             let file_path = format!("/Users/john/code/writing/content/{}", filename);
-        //             let file_view_model = file_view::ViewModel::new(&file_path).unwrap();
-        //             file_view::paint(&mut stdout, file_view_rect, &file_view_model).unwrap();
-        //         }
-        //         _ => {}
-        //     };
-        // }
-        // file_pane::paint(&mut stdout, file_pane_rect, &file_pane_view_model).unwrap();
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();

@@ -1,4 +1,5 @@
 use crate::components::component::Component;
+use crate::event::Event;
 use crate::indexer::Index;
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::{Rect, SPACES};
@@ -16,13 +17,29 @@ struct QuickOpenComponent {
     search_query: String,
     index: Option<Index>,
     results: Vec<QuickOpenResult>,
+    selected_item_index: Option<usize>,
+    events: Vec<Event>,
 }
 
 impl QuickOpenComponent {
+    fn new() -> QuickOpenComponent {
+        QuickOpenComponent {
+            search_query: String::new(),
+            index: None,
+            results: vec![],
+            selected_item_index: None,
+            events: vec![],
+        }
+    }
     fn update_quick_open_results(&mut self) {
         match &self.index {
             Some(index) => {
                 self.results = get_quick_open_results(&index, &self.search_query);
+                if self.results.len() > 0 {
+                    self.selected_item_index = Some(0)
+                } else {
+                    self.selected_item_index = None
+                }
             }
             None => {}
         };
@@ -41,12 +58,29 @@ impl Component for QuickOpenComponent {
 
         let mut row = rect.top + 1;
 
-        for result in &self.results {
+        for (index, result) in self.results.iter().enumerate() {
+            if self.selected_item_index.is_some() && self.selected_item_index.unwrap() == index {
+                write!(
+                    stream,
+                    "{}{}",
+                    termion::color::Bg(termion::color::White),
+                    termion::color::Fg(termion::color::Black)
+                )?;
+            } else {
+                write!(stream, "{}", termion::color::Fg(termion::color::White))?;
+            }
+
             write!(
                 stream,
                 "{}{}",
                 termion::cursor::Goto(rect.left, row),
                 result.path.file_name().unwrap().to_str().unwrap()
+            )?;
+            write!(
+                stream,
+                "{}{}",
+                termion::color::Fg(termion::color::Reset),
+                termion::color::Bg(termion::color::Reset)
             )?;
             if row >= rect.height {
                 break;
@@ -59,6 +93,7 @@ impl Component for QuickOpenComponent {
     }
 
     fn dispatch_key(&mut self, key: Key) -> bool {
+        self.events.clear();
         match key {
             Key::Char(c) => {
                 self.search_query.push(c);
@@ -70,9 +105,46 @@ impl Component for QuickOpenComponent {
                 self.update_quick_open_results();
                 true
             }
+            Key::Down => {
+                let next_item_index = match self.selected_item_index {
+                    None => 0usize,
+                    Some(index) => index + 1usize,
+                };
+                if next_item_index < self.results.len() {
+                    self.selected_item_index = Some(next_item_index);
+                    self.events.push(Event::FileItemSelected(
+                        self.results[next_item_index].clone(),
+                    ));
+                };
+                true
+            }
+            Key::Up => {
+                let maybe_next_item_index = match self.selected_item_index {
+                    None => None,
+                    Some(index) => {
+                        if index > 0 {
+                            Some(index - 1usize)
+                        } else {
+                            None
+                        }
+                    }
+                };
+                if let Some(next_item_index) = maybe_next_item_index {
+                    self.selected_item_index = Some(next_item_index);
+                    self.events.push(Event::FileItemSelected(
+                        self.results[next_item_index].clone(),
+                    ));
+                };
+                true
+            }
             _ => false,
         }
     }
+
+    fn get_events(&self) -> Vec<Event> {
+        return self.events.clone();
+    }
+    fn dispatch_events(&mut self, events: &[Event]) {}
 }
 
 struct DirectoryTreeComponent {
@@ -163,6 +235,11 @@ impl Component for DirectoryTreeComponent {
             _ => false,
         }
     }
+
+    fn get_events(&self) -> Vec<Event> {
+        Vec::new()
+    }
+    fn dispatch_events(&mut self, events: &[Event]) {}
 }
 
 enum FilePaneMode {
@@ -195,11 +272,7 @@ impl FilePaneComponent {
                 selected_item_index: None,
                 items: items,
             },
-            quick_open: QuickOpenComponent {
-                search_query: String::new(),
-                index: None,
-                results: vec![],
-            },
+            quick_open: QuickOpenComponent::new(),
             mode: FilePaneMode::DirectoryTree,
         });
     }
@@ -232,6 +305,19 @@ impl Component for FilePaneComponent {
         match self.mode {
             FilePaneMode::DirectoryTree => self.directory_tree.dispatch_key(key),
             FilePaneMode::QuickOpen => self.quick_open.dispatch_key(key),
+        }
+    }
+
+    fn get_events(&self) -> Vec<Event> {
+        match self.mode {
+            FilePaneMode::DirectoryTree => self.directory_tree.get_events(),
+            FilePaneMode::QuickOpen => self.quick_open.get_events(),
+        }
+    }
+    fn dispatch_events(&mut self, events: &[Event]) {
+        match self.mode {
+            FilePaneMode::DirectoryTree => self.directory_tree.dispatch_events(events),
+            FilePaneMode::QuickOpen => self.quick_open.dispatch_events(events),
         }
     }
 }

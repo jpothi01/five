@@ -1,6 +1,6 @@
 use super::component::Component;
+use crate::event::Event;
 use crate::terminal::Rect;
-use std::io;
 use std::io::Write;
 
 pub struct DividerComponent {}
@@ -27,4 +27,8 @@ impl Component for DividerComponent {
     fn dispatch_key(&mut self, key: termion::event::Key) -> bool {
         false
     }
+    fn get_events(&self) -> Vec<Event> {
+        Vec::new()
+    }
+    fn dispatch_events(&mut self, events: &[Event]) {}
 }

@@ -1,4 +1,5 @@
 use super::component::Component;
+use crate::event::Event;
 use crate::terminal::{Rect, SPACES};
 use std::cmp::min;
 use std::io::Write;
@@ -6,13 +7,20 @@ use termion;
 
 pub struct FileViewComponent {
     content: String,
+    file_name: String,
 }
 
 impl FileViewComponent {
     pub fn new() -> FileViewComponent {
         FileViewComponent {
             content: String::new(),
+            file_name: String::new(),
         }
+    }
+
+    pub fn set_file_content(&mut self, file_name: String, content: String) {
+        self.content = content;
+        self.file_name = file_name;
     }
 }
 
@@ -65,4 +73,10 @@ impl Component for FileViewComponent {
     fn dispatch_key(&mut self, key: termion::event::Key) -> bool {
         false
     }
+
+    fn get_events(&self) -> Vec<Event> {
+        Vec::new()
+    }
+
+    fn dispatch_events(&mut self, events: &[Event]) {}
 }

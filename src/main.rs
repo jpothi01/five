@@ -7,7 +7,7 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 mod components;
-mod divider;
+mod event;
 mod indexer;
 mod quick_open;
 mod terminal;
@@ -50,6 +50,8 @@ fn run(config: Config) {
 
         root_component.dispatch_key(key);
         root_component.paint(&mut stdout, root_rect).unwrap();
+        let events = root_component.get_events();
+        root_component.dispatch_events(&events);
     }
 
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();

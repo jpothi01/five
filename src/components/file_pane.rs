@@ -54,6 +54,12 @@ impl Component for QuickOpenComponent {
             termion::clear::All,
             termion::cursor::Goto(rect.left, rect.top)
         )?;
+        write!(
+            stream,
+            "{}{}",
+            termion::color::Bg(termion::color::Yellow),
+            termion::color::Fg(termion::color::Black)
+        )?;
         write!(stream, "{}", self.search_query)?;
 
         let mut row = rect.top + 1;
@@ -67,7 +73,12 @@ impl Component for QuickOpenComponent {
                     termion::color::Fg(termion::color::Black)
                 )?;
             } else {
-                write!(stream, "{}", termion::color::Fg(termion::color::White))?;
+                write!(
+                    stream,
+                    "{}{}",
+                    termion::color::Fg(termion::color::White),
+                    termion::color::Bg(termion::color::Reset)
+                )?;
             }
 
             write!(
@@ -88,6 +99,13 @@ impl Component for QuickOpenComponent {
 
             row += 1;
         }
+
+        write!(
+            stream,
+            "{}{}",
+            termion::color::Fg(termion::color::Reset),
+            termion::color::Bg(termion::color::Reset)
+        )?;
 
         Ok(())
     }

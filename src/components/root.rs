@@ -48,6 +48,7 @@ impl RootComponent {
 
 impl Component for RootComponent {
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+        let margin = 1;
         let file_pane_rect = Rect {
             left: 1,
             top: 1,
@@ -55,15 +56,15 @@ impl Component for RootComponent {
             height: rect.height,
         };
         let divider_rect = Rect {
-            left: file_pane_rect.width + 1,
+            left: file_pane_rect.width + 1 + margin,
             top: 1,
             width: 1,
             height: rect.height,
         };
         let file_view_rect = Rect {
-            left: file_pane_rect.width + divider_rect.width,
+            left: file_pane_rect.width + 1 + divider_rect.width + 2 * margin,
             top: 1,
-            width: rect.width - file_pane_rect.width,
+            width: rect.width - file_pane_rect.width - 2 * margin,
             height: rect.height,
         };
         self.file_pane.paint(stream, file_pane_rect)?;

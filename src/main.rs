@@ -1,11 +1,27 @@
+/*
+    Copyright 2020, John Pothier
+    This file is part of Five.
+
+    Five is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Five is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Five.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 use components::component::Component;
 use std::convert::TryFrom;
-use std::io::{stdin, stdout, Write};
+use std::io::{stdin, Write};
 use structopt::StructOpt;
 use termion::event::Event;
 use termion::event::Key;
-use termion::event::MouseButton;
-use termion::event::MouseEvent;
 use termion::input::MouseTerminal;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;

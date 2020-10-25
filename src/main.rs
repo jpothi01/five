@@ -18,7 +18,11 @@ enum View {
     FilePane,
 }
 
-fn run() {
+struct Config {
+    cwd: String,
+}
+
+fn run(config: Config) {
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
     write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
@@ -34,7 +38,7 @@ fn run() {
         height: terminal_height - 2 * margin,
     };
 
-    let mut root_component = components::root::RootComponent::new("/Users/john/code/edit");
+    let mut root_component = components::root::RootComponent::new(&config.cwd);
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 
@@ -71,9 +75,18 @@ fn run() {
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "five", about = "A brutal text editor.")]
-struct Options {}
+struct Options {
+    #[structopt(
+        parse(from_str),
+        help = "Directory to open. Current directory if unspecified."
+    )]
+    directory: Option<String>,
+}
 
 fn main() {
     let options = Options::from_args();
-    run();
+    let config = Config {
+        cwd: options.directory.unwrap_or(String::from(".")),
+    };
+    run(config);
 }

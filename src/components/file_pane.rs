@@ -112,7 +112,7 @@ impl Component for QuickOpenComponent {
 
     fn dispatch_key(&mut self, key: Key) -> bool {
         self.events.clear();
-        match key {
+        let handled = match key {
             Key::Char(c) => {
                 self.search_query.push(c);
                 self.update_quick_open_results();
@@ -130,9 +130,6 @@ impl Component for QuickOpenComponent {
                 };
                 if next_item_index < self.results.len() {
                     self.selected_item_index = Some(next_item_index);
-                    self.events.push(Event::FileItemSelected(
-                        self.results[next_item_index].clone(),
-                    ));
                 };
                 true
             }
@@ -149,14 +146,17 @@ impl Component for QuickOpenComponent {
                 };
                 if let Some(next_item_index) = maybe_next_item_index {
                     self.selected_item_index = Some(next_item_index);
-                    self.events.push(Event::FileItemSelected(
-                        self.results[next_item_index].clone(),
-                    ));
                 };
                 true
             }
             _ => false,
+        };
+        if let Some(selected_index) = self.selected_item_index {
+            self.events.push(Event::FileItemSelected(
+                self.results[selected_index].clone(),
+            ));
         }
+        handled
     }
 
     fn get_events(&self) -> Vec<Event> {

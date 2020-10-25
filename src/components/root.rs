@@ -1,4 +1,5 @@
 use crate::components::component::Component;
+use crate::components::divider::DividerComponent;
 use crate::components::file_pane::FilePaneComponent;
 use crate::components::file_view::FileViewComponent;
 use crate::indexer::Indexer;
@@ -10,6 +11,7 @@ pub struct RootComponent {
     indexer: Indexer,
     file_pane: FilePaneComponent,
     file_view: FileViewComponent,
+    divider: DividerComponent,
 }
 
 impl RootComponent {
@@ -18,6 +20,7 @@ impl RootComponent {
             indexer: Indexer::new(cwd),
             file_pane: FilePaneComponent::new(cwd).unwrap(),
             file_view: FileViewComponent::new(),
+            divider: DividerComponent::new(),
         }
     }
 
@@ -51,6 +54,7 @@ impl Component for RootComponent {
         };
         self.file_pane.paint(stream, file_pane_rect)?;
         self.file_view.paint(stream, file_view_rect)?;
+        self.divider.paint(stream, divider_rect)?;
         stream.flush()
     }
 

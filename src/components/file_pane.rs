@@ -52,12 +52,7 @@ impl Component for QuickOpenComponent {
     }
 
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
-        write!(
-            stream,
-            "{}{}",
-            termion::clear::All,
-            termion::cursor::Goto(rect.left, rect.top)
-        )?;
+        write!(stream, "{}", termion::cursor::Goto(rect.left, rect.top))?;
         write!(
             stream,
             "{}{}",

@@ -9,6 +9,7 @@ use termion;
 
 pub struct FileViewComponent {
     content: String,
+    num_content_lines: usize,
     file_name: String,
     file_path: String,
     start_line: usize,
@@ -19,6 +20,7 @@ impl FileViewComponent {
     pub fn new() -> FileViewComponent {
         FileViewComponent {
             content: String::new(),
+            num_content_lines: 0,
             file_name: String::new(),
             file_path: String::new(),
             start_line: 0usize,
@@ -28,6 +30,7 @@ impl FileViewComponent {
 
     pub fn set_text_file_content(&mut self, file_path: &Path, content: String) {
         self.content = content;
+        self.num_content_lines = self.content.lines().count();
         self.file_path = String::from(file_path.to_str().unwrap_or(""));
         self.start_line = 0;
         self.needs_paint.set(true);
@@ -35,14 +38,17 @@ impl FileViewComponent {
 
     pub fn set_binary_file_content(&mut self, file_path: &Path) {
         self.content = String::from("<binary file>");
+        self.num_content_lines = 1;
         self.file_path = String::from(file_path.to_str().unwrap_or(""));
         self.start_line = 0;
         self.needs_paint.set(true);
     }
 
     fn scroll_down(&mut self) {
-        self.start_line = self.start_line + 1;
-        self.needs_paint.set(true);
+        if self.start_line < self.num_content_lines {
+            self.start_line = self.start_line + 1;
+            self.needs_paint.set(true);
+        }
     }
 
     fn scroll_up(&mut self) {

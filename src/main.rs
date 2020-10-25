@@ -62,6 +62,7 @@ fn run(config: Config) {
         root_component.paint(&mut stdout, root_rect).unwrap();
     }
 
+    write!(stdout, "{}", termion::cursor::Show).unwrap();
     write!(stdout, "{}", termion::screen::ToMainScreen).unwrap();
 }
 

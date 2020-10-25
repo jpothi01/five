@@ -24,6 +24,7 @@ fn run(config: Config) {
     let stdin = stdin();
     let mut stdout = MouseTerminal::from(std::io::stdout().into_raw_mode().unwrap());
     write!(stdout, "{}", termion::screen::ToAlternateScreen).unwrap();
+    write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
     let terminal_size = terminal::get_terminal_size();
     let terminal_width = u16::try_from(terminal_size.0).unwrap();

@@ -49,6 +49,9 @@ impl RootComponent {
 }
 
 impl Component for RootComponent {
+    fn needs_paint(&self) -> bool {
+        self.file_view.needs_paint() || self.file_pane.needs_paint() || self.divider.needs_paint()
+    }
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         let margin = 1;
         let file_pane_rect = Rect {
@@ -69,14 +72,23 @@ impl Component for RootComponent {
             width: rect.width - file_pane_rect.width - 2 * margin,
             height: rect.height,
         };
-        self.file_pane.paint(stream, file_pane_rect)?;
-        self.file_view.paint(stream, file_view_rect)?;
-        self.divider.paint(stream, divider_rect)?;
+        if self.file_pane.needs_paint() {
+            self.file_pane.paint(stream, file_pane_rect)?;
+        }
+        if self.file_view.needs_paint() {
+            self.file_view.paint(stream, file_view_rect)?;
+        }
+        if self.divider.needs_paint() {
+            self.divider.paint(stream, divider_rect)?;
+        }
         stream.flush()
     }
 
     fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
         if self.file_pane.dispatch_event(event.clone()) {
+            return true;
+        }
+        if self.file_view.dispatch_event(event.clone()) {
             return true;
         }
         match event {

@@ -47,6 +47,10 @@ impl QuickOpenComponent {
 }
 
 impl Component for QuickOpenComponent {
+    fn needs_paint(&self) -> bool {
+        true
+    }
+
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         write!(
             stream,
@@ -154,10 +158,12 @@ impl Component for QuickOpenComponent {
             },
             _ => false,
         };
-        if let Some(selected_index) = self.selected_item_index {
-            self.events.push(Event::FileItemSelected(
-                self.results[selected_index].clone(),
-            ));
+        if handled {
+            if let Some(selected_index) = self.selected_item_index {
+                self.events.push(Event::FileItemSelected(
+                    self.results[selected_index].clone(),
+                ));
+            }
         }
         handled
     }
@@ -174,6 +180,9 @@ struct DirectoryTreeComponent {
 }
 
 impl Component for DirectoryTreeComponent {
+    fn needs_paint(&self) -> bool {
+        true
+    }
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         let mut row = rect.top;
         for (index, item) in self.items.iter().enumerate() {
@@ -308,6 +317,9 @@ impl FilePaneComponent {
 }
 
 impl Component for FilePaneComponent {
+    fn needs_paint(&self) -> bool {
+        self.directory_tree.needs_paint() || self.quick_open.needs_paint()
+    }
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         match self.mode {
             FilePaneMode::DirectoryTree => self.directory_tree.paint(stream, rect),

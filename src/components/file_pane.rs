@@ -18,12 +18,11 @@
 
 use crate::components::component::Component;
 use crate::event::Event;
-use crate::indexer::Index;
+use crate::indexer::{FileTreeFolder, FileTreeNode, Index};
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
-use crate::terminal::{Rect, SPACES};
-use std::cmp::min;
-use std::fs;
+use crate::terminal::Rect;
+use std::cell::Cell;
 use std::io::Write;
 use termion::event::Key;
 
@@ -190,15 +189,28 @@ impl Component for QuickOpenComponent {
 struct DirectoryTreeComponent {
     selected_item_index: Option<usize>,
     items: Vec<FilePaneItem>,
+    needs_paint: Cell<bool>,
+    current_node: Option<FileTreeNode>,
 }
 
-impl Component for DirectoryTreeComponent {
-    fn needs_paint(&self) -> bool {
-        true
+impl DirectoryTreeComponent {
+    fn update_index(&mut self, index: Index) {
+        self.needs_paint.set(true);
+
+        match self.current_node {
+            None => self.current_node = Some(index.tree),
+            _ => {}
+        }
     }
-    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+
+    fn paint_directory<Writer: Write>(
+        &self,
+        stream: &mut Writer,
+        directory: &FileTreeFolder,
+        rect: Rect,
+    ) -> std::io::Result<()> {
         let mut row = rect.top;
-        for (index, item) in self.items.iter().enumerate() {
+        for (index, node) in directory.children.iter().enumerate() {
             write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
             if self.selected_item_index.is_some() && self.selected_item_index.unwrap() == index {
                 write!(
@@ -208,25 +220,20 @@ impl Component for DirectoryTreeComponent {
                     termion::color::Fg(termion::color::Black)
                 )?;
             } else {
-                match item {
-                    FilePaneItem::File(_) => {
+                match node {
+                    FileTreeNode::File(_) => {
                         write!(stream, "{}", termion::color::Fg(termion::color::White))?;
                     }
-                    FilePaneItem::Folder(_) => {
+                    FileTreeNode::Folder(_) => {
                         write!(stream, "{}", termion::color::Fg(termion::color::Green))?;
                     }
                 }
             }
-            let line = match item {
-                FilePaneItem::File(filename) => filename,
-                FilePaneItem::Folder(foldername) => foldername,
+            let line = match node {
+                FileTreeNode::File(file_index_entry) => &file_index_entry.file_name,
+                FileTreeNode::Folder(file_tree_folder) => &file_tree_folder.folder_name,
             };
-            // TODO: this is wrong, do what file_view does
-            let line_length = line.chars().count();
-            let truncated_length = min(line_length, rect.width as usize);
-            if let Some(last_char) = line.char_indices().take(truncated_length).last() {
-                write!(stream, "{}", &line[0..=last_char.0])?;
-            }
+            paint_truncated_text(stream, line, rect.width)?;
             write!(
                 stream,
                 "{}{}",
@@ -235,16 +242,35 @@ impl Component for DirectoryTreeComponent {
             )?;
             row += 1;
         }
-        while row < rect.top + rect.height {
-            write!(
-                stream,
-                "{}{}",
-                termion::cursor::Goto(rect.left, row),
-                &SPACES[0..(rect.width as usize - 1)]
-            )?;
-            row += 1
+        paint_empty_lines(
+            stream,
+            Rect {
+                top: row,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height - row + 1,
+            },
+        )?;
+        self.needs_paint.set(false);
+        Ok(())
+    }
+}
+
+impl Component for DirectoryTreeComponent {
+    fn needs_paint(&self) -> bool {
+        self.needs_paint.take()
+    }
+    fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
+        if let Some(file_tree_node) = &self.current_node {
+            if let FileTreeNode::Folder(file_tree_folder) = file_tree_node {
+                self.paint_directory(stream, &file_tree_folder, rect)
+            } else {
+                // TODO: single file support
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
-        stream.flush()
     }
 
     fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
@@ -300,32 +326,26 @@ pub struct FilePaneComponent {
 }
 
 impl FilePaneComponent {
-    pub fn new(cwd: &str) -> std::io::Result<FilePaneComponent> {
-        let mut items: Vec<FilePaneItem> = Vec::new();
-        for entry in fs::read_dir(cwd)? {
-            if let Ok(entry) = entry {
-                let file_type = entry.file_type()?;
-                let file_name = entry.file_name().into_string().unwrap();
-                if file_type.is_file() {
-                    items.push(FilePaneItem::File(file_name));
-                } else if file_type.is_dir() {
-                    items.push(FilePaneItem::Folder(file_name));
-                }
-            }
-        }
-        return Ok(FilePaneComponent {
+    pub fn new() -> FilePaneComponent {
+        FilePaneComponent {
             directory_tree: DirectoryTreeComponent {
                 selected_item_index: None,
-                items: items,
+                items: vec![],
+                needs_paint: Cell::new(true),
+                current_node: None,
             },
             quick_open: QuickOpenComponent::new(),
             mode: FilePaneMode::DirectoryTree,
-        });
+        }
     }
 
     pub fn start_quick_open(&mut self, index: Index) {
         self.quick_open.index = Some(index);
         self.mode = FilePaneMode::QuickOpen;
+    }
+
+    pub fn update_index(&mut self, index: Index) {
+        self.directory_tree.update_index(index);
     }
 }
 

@@ -38,7 +38,7 @@ impl RootComponent {
     pub fn new(cwd: &str) -> RootComponent {
         RootComponent {
             indexer: Indexer::new(cwd),
-            file_pane: FilePaneComponent::new(cwd).unwrap(),
+            file_pane: FilePaneComponent::new(),
             file_view: FileViewComponent::new(),
             divider: DividerComponent::new(),
         }
@@ -46,14 +46,18 @@ impl RootComponent {
 
     fn start_quick_open(&mut self) {
         match self.indexer.get_index() {
-            Err(err) => println!("Could not get index: {}", err.message),
-            Ok(index) => self.file_pane.start_quick_open(index),
+            None => println!("Could not get index"),
+            Some(index) => {
+                self.file_pane.start_quick_open(index.clone());
+                // TODO: somehow make this event based
+                self.file_pane.update_index(index)
+            }
         }
     }
 
     fn open_file(&mut self, index_entry: &FileIndexEntry) {
         match std::fs::read_to_string(&index_entry.path) {
-            Err(err) => {
+            Err(_) => {
                 // TODO: smart error handling for non-utf-8 strings
                 self.file_view
                     .set_binary_file_content(index_entry.path.as_path());

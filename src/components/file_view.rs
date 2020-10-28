@@ -19,9 +19,8 @@
 use super::component::Component;
 use crate::event::Event;
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
-use crate::terminal::{Rect, SPACES};
+use crate::terminal::Rect;
 use std::cell::Cell;
-use std::cmp::min;
 use std::io::Write;
 use std::path::Path;
 use termion;
@@ -94,21 +93,23 @@ impl Component for FileViewComponent {
         for line in lines {
             write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
             paint_truncated_text(stream, line, rect.width)?;
-            row += 1;
-            if row > rect.height {
+
+            if row >= rect.height {
                 break;
             }
+
+            row += 1;
         }
 
-        while row < rect.top + rect.height {
-            write!(
-                stream,
-                "{}{}",
-                termion::cursor::Goto(rect.left, row),
-                &SPACES[0..(rect.width as usize)]
-            )?;
-            row += 1
-        }
+        paint_empty_lines(
+            stream,
+            Rect {
+                top: row,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height - row + 1,
+            },
+        )?;
 
         self.needs_paint.set(false);
         Ok(())

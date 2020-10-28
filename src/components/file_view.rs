@@ -139,5 +139,5 @@ impl Component for FileViewComponent {
         Vec::new()
     }
 
-    fn dispatch_events(&mut self, events: &[Event]) {}
+    fn dispatch_events(&mut self, _: &[Event]) {}
 }

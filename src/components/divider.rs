@@ -52,11 +52,11 @@ impl Component for DividerComponent {
         Ok(())
     }
 
-    fn dispatch_event(&mut self, key: termion::event::Event) -> bool {
+    fn dispatch_event(&mut self, _: termion::event::Event) -> bool {
         false
     }
     fn get_events(&self) -> Vec<Event> {
         Vec::new()
     }
-    fn dispatch_events(&mut self, events: &[Event]) {}
+    fn dispatch_events(&mut self, _: &[Event]) {}
 }

@@ -26,11 +26,6 @@ use std::cell::Cell;
 use std::io::Write;
 use termion::event::Key;
 
-enum FilePaneItem {
-    File(String),
-    Folder(String),
-}
-
 struct QuickOpenComponent {
     search_query: String,
     index: Option<Index>,
@@ -183,12 +178,13 @@ impl Component for QuickOpenComponent {
     fn get_events(&self) -> Vec<Event> {
         return self.events.clone();
     }
-    fn dispatch_events(&mut self, events: &[Event]) {}
+    fn dispatch_events(&mut self, _: &[Event]) {}
 }
 
 struct DirectoryTreeComponent {
     selected_item_index: Option<usize>,
     needs_paint: Cell<bool>,
+    parent_node: Option<FileTreeNode>,
     current_node: Option<FileTreeNode>,
     events: Vec<Event>,
 }
@@ -213,22 +209,48 @@ impl DirectoryTreeComponent {
         }
     }
 
-    fn file_index_entry_at_index(&self, index: usize) -> Option<FileIndexEntry> {
+    fn file_tree_node_at_index(&self, index: usize) -> Option<&FileTreeNode> {
         match &self.current_node {
             None => None,
             Some(file_tree_node) => match file_tree_node {
                 FileTreeNode::File(_) => None,
-                FileTreeNode::Folder(file_tree_folder) => {
-                    match file_tree_folder.children.get(index) {
-                        None => None,
-                        Some(file_tree_node) => match file_tree_node {
-                            FileTreeNode::Folder(_) => None,
-                            FileTreeNode::File(file_index_entry) => Some(file_index_entry.clone()),
-                        },
-                    }
-                }
+                FileTreeNode::Folder(file_tree_folder) => file_tree_folder.children.get(index),
             },
         }
+    }
+
+    fn file_index_entry_at_index(&self, index: usize) -> Option<&FileIndexEntry> {
+        match self.file_tree_node_at_index(index) {
+            None => None,
+            Some(file_tree_node) => match file_tree_node {
+                FileTreeNode::Folder(_) => None,
+                FileTreeNode::File(file_index_entry) => Some(file_index_entry),
+            },
+        }
+    }
+
+    fn open_selected_item(&mut self) {
+        let next_current_node = match self.selected_item_index {
+            None => None,
+            Some(selected_index) => {
+                match self.file_tree_node_at_index(selected_index) {
+                    None => None,
+                    Some(file_tree_node) => match file_tree_node {
+                        FileTreeNode::File(_) => {
+                            // TODO open file!
+                            None
+                        }
+                        FileTreeNode::Folder(file_tree_folder) => {
+                            Some(FileTreeNode::Folder(file_tree_folder.clone()))
+                        }
+                    },
+                }
+            }
+        };
+
+        self.parent_node = self.current_node.clone();
+        self.current_node = next_current_node;
+        self.needs_paint.set(true);
     }
 
     fn paint_directory<Writer: Write>(
@@ -331,15 +353,37 @@ impl Component for DirectoryTreeComponent {
                     };
                     true
                 }
+                Key::Backspace => {
+                    if let Some(file_tree_node) = self.parent_node.clone() {
+                        self.current_node = self.parent_node.clone();
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Key::Char(c) => match c {
+                    '\n' => {
+                        self.open_selected_item();
+                        true
+                    }
+                    _ => false,
+                },
                 _ => false,
             },
             _ => false,
         };
         if handled {
-            if let Some(selected_index) = self.selected_item_index {
+            let event = if let Some(selected_index) = self.selected_item_index {
                 if let Some(file_index_entry) = self.file_index_entry_at_index(selected_index) {
-                    self.events.push(Event::FileItemSelected(file_index_entry));
+                    Some(Event::FileItemSelected(file_index_entry.clone()))
+                } else {
+                    None
                 }
+            } else {
+                None
+            };
+            if let Some(event) = event {
+                self.events.push(event)
             }
         };
         handled
@@ -348,7 +392,7 @@ impl Component for DirectoryTreeComponent {
     fn get_events(&self) -> Vec<Event> {
         self.events.clone()
     }
-    fn dispatch_events(&mut self, events: &[Event]) {}
+    fn dispatch_events(&mut self, _: &[Event]) {}
 }
 
 enum FilePaneMode {
@@ -368,6 +412,7 @@ impl FilePaneComponent {
             directory_tree: DirectoryTreeComponent {
                 selected_item_index: None,
                 needs_paint: Cell::new(true),
+                parent_node: None,
                 current_node: None,
                 events: Vec::new(),
             },

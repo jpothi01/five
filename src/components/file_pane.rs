@@ -18,7 +18,7 @@
 
 use crate::components::component::Component;
 use crate::event::Event;
-use crate::indexer::{FileTreeFolder, FileTreeNode, Index};
+use crate::indexer::{FileIndexEntry, FileTreeFolder, FileTreeNode, Index};
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::Rect;
@@ -188,9 +188,9 @@ impl Component for QuickOpenComponent {
 
 struct DirectoryTreeComponent {
     selected_item_index: Option<usize>,
-    items: Vec<FilePaneItem>,
     needs_paint: Cell<bool>,
     current_node: Option<FileTreeNode>,
+    events: Vec<Event>,
 }
 
 impl DirectoryTreeComponent {
@@ -200,6 +200,34 @@ impl DirectoryTreeComponent {
         match self.current_node {
             None => self.current_node = Some(index.tree),
             _ => {}
+        }
+    }
+
+    fn num_current_items(&self) -> usize {
+        match &self.current_node {
+            None => 0,
+            Some(file_tree_node) => match file_tree_node {
+                FileTreeNode::File(_) => 1,
+                FileTreeNode::Folder(file_tree_folder) => file_tree_folder.children.len(),
+            },
+        }
+    }
+
+    fn file_index_entry_at_index(&self, index: usize) -> Option<FileIndexEntry> {
+        match &self.current_node {
+            None => None,
+            Some(file_tree_node) => match file_tree_node {
+                FileTreeNode::File(_) => None,
+                FileTreeNode::Folder(file_tree_folder) => {
+                    match file_tree_folder.children.get(index) {
+                        None => None,
+                        Some(file_tree_node) => match file_tree_node {
+                            FileTreeNode::Folder(_) => None,
+                            FileTreeNode::File(file_index_entry) => Some(file_index_entry.clone()),
+                        },
+                    }
+                }
+            },
         }
     }
 
@@ -274,14 +302,15 @@ impl Component for DirectoryTreeComponent {
     }
 
     fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
-        match event {
+        self.events.clear();
+        let handled = match event {
             termion::event::Event::Key(key) => match key {
                 Key::Down => {
                     let next_item_index = match self.selected_item_index {
                         None => 0usize,
                         Some(index) => index + 1usize,
                     };
-                    if next_item_index < self.items.len() {
+                    if next_item_index < self.num_current_items() {
                         self.selected_item_index = Some(next_item_index)
                     };
                     true
@@ -305,11 +334,19 @@ impl Component for DirectoryTreeComponent {
                 _ => false,
             },
             _ => false,
-        }
+        };
+        if handled {
+            if let Some(selected_index) = self.selected_item_index {
+                if let Some(file_index_entry) = self.file_index_entry_at_index(selected_index) {
+                    self.events.push(Event::FileItemSelected(file_index_entry));
+                }
+            }
+        };
+        handled
     }
 
     fn get_events(&self) -> Vec<Event> {
-        Vec::new()
+        self.events.clone()
     }
     fn dispatch_events(&mut self, events: &[Event]) {}
 }
@@ -330,9 +367,9 @@ impl FilePaneComponent {
         FilePaneComponent {
             directory_tree: DirectoryTreeComponent {
                 selected_item_index: None,
-                items: vec![],
                 needs_paint: Cell::new(true),
                 current_node: None,
+                events: Vec::new(),
             },
             quick_open: QuickOpenComponent::new(),
             mode: FilePaneMode::DirectoryTree,

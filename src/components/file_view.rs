@@ -18,6 +18,7 @@
 
 use super::component::Component;
 use crate::event::Event;
+use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::terminal::{Rect, SPACES};
 use std::cell::Cell;
 use std::cmp::min;
@@ -83,12 +84,9 @@ impl Component for FileViewComponent {
     }
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
         write!(stream, "{}", termion::color::Fg(termion::color::Yellow))?;
-        write!(
-            stream,
-            "{}{}",
-            termion::cursor::Goto(rect.left, rect.top),
-            self.file_path
-        )?;
+        write!(stream, "{}", termion::cursor::Goto(rect.left, rect.top),)?;
+        paint_truncated_text(stream, &self.file_path, rect.width)?;
+
         write!(stream, "{}", termion::color::Fg(termion::color::White))?;
         let lines = self.content.lines().skip(self.start_line);
 

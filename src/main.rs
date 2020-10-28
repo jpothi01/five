@@ -29,6 +29,7 @@ use termion::raw::IntoRawMode;
 mod components;
 mod event;
 mod indexer;
+mod painting_utils;
 mod quick_open;
 mod terminal;
 

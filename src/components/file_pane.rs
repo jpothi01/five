@@ -19,6 +19,7 @@
 use crate::components::component::Component;
 use crate::event::Event;
 use crate::indexer::Index;
+use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::{Rect, SPACES};
 use std::cmp::min;
@@ -77,7 +78,7 @@ impl Component for QuickOpenComponent {
             termion::color::Bg(termion::color::Yellow),
             termion::color::Fg(termion::color::Black)
         )?;
-        write!(stream, "{}", self.search_query)?;
+        paint_truncated_text(stream, &self.search_query, rect.width)?;
 
         let mut row = rect.top + 1;
 
@@ -98,18 +99,8 @@ impl Component for QuickOpenComponent {
                 )?;
             }
 
-            write!(
-                stream,
-                "{}{}",
-                termion::cursor::Goto(rect.left, row),
-                result.path.file_name().unwrap().to_str().unwrap()
-            )?;
-            write!(
-                stream,
-                "{}{}",
-                termion::color::Fg(termion::color::Reset),
-                termion::color::Bg(termion::color::Reset)
-            )?;
+            write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
+            paint_truncated_text(stream, &result.file_name, rect.width)?;
             if row >= rect.height {
                 break;
             }
@@ -122,6 +113,15 @@ impl Component for QuickOpenComponent {
             "{}{}",
             termion::color::Fg(termion::color::Reset),
             termion::color::Bg(termion::color::Reset)
+        )?;
+        paint_empty_lines(
+            stream,
+            Rect {
+                top: row,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height - row + 1,
+            },
         )?;
 
         Ok(())

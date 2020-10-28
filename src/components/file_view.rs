@@ -93,26 +93,7 @@ impl Component for FileViewComponent {
         let mut row = rect.top + 1;
         for line in lines {
             write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
-            // TODO: clean this up and centralize the logic
-            let line_length = line.chars().count();
-            if line_length < rect.width as usize {
-                write!(stream, "{}", line)?;
-                write!(
-                    stream,
-                    "{}",
-                    &SPACES[0..(rect.width as usize - line_length)]
-                )?;
-            } else {
-                let truncated_length = min(line_length, rect.width as usize);
-                if let Some(last_char) = line.char_indices().take(truncated_length).last() {
-                    write!(stream, "{}", &line[0..last_char.0])?;
-                }
-                write!(
-                    stream,
-                    "{}",
-                    &SPACES[0..(rect.width as usize - truncated_length)]
-                )?;
-            }
+            paint_truncated_text(stream, line, rect.width)?;
             row += 1;
             if row > rect.height {
                 break;

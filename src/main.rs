@@ -46,12 +46,11 @@ fn run(config: Config) {
     let terminal_size = terminal::get_terminal_size();
     let terminal_width = u16::try_from(terminal_size.0).unwrap();
     let terminal_height = u16::try_from(terminal_size.1).unwrap();
-    let margin = 2u16;
     let root_rect = terminal::Rect {
-        left: margin,
-        top: margin,
-        width: terminal_width - 2 * margin,
-        height: terminal_height - 2 * margin,
+        left: 1,
+        top: 1,
+        width: terminal_width - 1,
+        height: terminal_height,
     };
 
     let mut root_component = components::root::RootComponent::new(&config.cwd);

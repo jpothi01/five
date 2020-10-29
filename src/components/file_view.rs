@@ -21,6 +21,7 @@ use crate::event::Event;
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::terminal::Rect;
 use std::cell::Cell;
+use std::convert::TryFrom;
 use std::io::Write;
 use std::path::Path;
 use termion;
@@ -31,6 +32,8 @@ pub struct FileViewComponent {
     file_name: String,
     file_path: String,
     start_line: usize,
+    has_focus: bool,
+    file_cursor_position: (usize, usize),
     needs_paint: Cell<bool>,
 }
 
@@ -42,6 +45,8 @@ impl FileViewComponent {
             file_name: String::new(),
             file_path: String::new(),
             start_line: 0usize,
+            has_focus: false,
+            file_cursor_position: (0, 0),
             needs_paint: Cell::new(true),
         }
     }
@@ -59,6 +64,11 @@ impl FileViewComponent {
         self.num_content_lines = 1;
         self.file_path = String::from(file_path.to_str().unwrap_or(""));
         self.start_line = 0;
+        self.needs_paint.set(true);
+    }
+
+    pub fn set_has_focus(&mut self, focused: bool) {
+        self.has_focus = focused;
         self.needs_paint.set(true);
     }
 
@@ -111,6 +121,23 @@ impl Component for FileViewComponent {
             },
         )?;
 
+        if self.has_focus {
+            let header_height = 1u16;
+            let visible_cursor_position = (
+                rect.left + u16::try_from(self.file_cursor_position.0).unwrap(),
+                rect.top
+                    + u16::try_from(self.file_cursor_position.1 - self.start_line).unwrap()
+                    + header_height,
+            );
+            write!(
+                stream,
+                "{}{} {}",
+                termion::cursor::Goto(visible_cursor_position.0, visible_cursor_position.1),
+                termion::color::Bg(termion::color::White),
+                termion::color::Bg(termion::color::Reset),
+            )?;
+        }
+
         self.needs_paint.set(false);
         Ok(())
     }
@@ -129,6 +156,29 @@ impl Component for FileViewComponent {
                     }
                     _ => false,
                 },
+                _ => false,
+            },
+            termion::event::Event::Key(key) => match key {
+                termion::event::Key::Down => {
+                    self.file_cursor_position.1 += 1;
+                    self.needs_paint.set(true);
+                    true
+                }
+                termion::event::Key::Left => {
+                    self.file_cursor_position.0 -= 1;
+                    self.needs_paint.set(true);
+                    true
+                }
+                termion::event::Key::Right => {
+                    self.file_cursor_position.0 += 1;
+                    self.needs_paint.set(true);
+                    true
+                }
+                termion::event::Key::Up => {
+                    self.file_cursor_position.1 -= 1;
+                    self.needs_paint.set(true);
+                    true
+                }
                 _ => false,
             },
             _ => false,

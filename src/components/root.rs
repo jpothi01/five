@@ -23,15 +23,22 @@ use crate::components::file_view::FileViewComponent;
 use crate::event::Event;
 use crate::indexer::FileIndexEntry;
 use crate::indexer::Indexer;
+use crate::painting_utils::paint_empty_lines;
 use crate::terminal::Rect;
 use std::io::Write;
 use termion::event::Key;
+
+enum FocusedComponent {
+    FilePane,
+    FileView,
+}
 
 pub struct RootComponent {
     indexer: Indexer,
     file_pane: FilePaneComponent,
     file_view: FileViewComponent,
     divider: DividerComponent,
+    focused_component: FocusedComponent,
 }
 
 impl RootComponent {
@@ -41,6 +48,7 @@ impl RootComponent {
             file_pane: FilePaneComponent::new(),
             file_view: FileViewComponent::new(),
             divider: DividerComponent::new(),
+            focused_component: FocusedComponent::FilePane,
         }
     }
 
@@ -55,7 +63,7 @@ impl RootComponent {
         }
     }
 
-    fn open_file(&mut self, index_entry: &FileIndexEntry) {
+    fn show_file_preview(&mut self, index_entry: &FileIndexEntry) {
         match std::fs::read_to_string(&index_entry.path) {
             Err(_) => {
                 // TODO: smart error handling for non-utf-8 strings
@@ -67,6 +75,12 @@ impl RootComponent {
                     .set_text_file_content(index_entry.path.as_path(), content);
             }
         }
+    }
+
+    fn open_file(&mut self, index_entry: &FileIndexEntry) {
+        self.show_file_preview(index_entry);
+        self.focused_component = FocusedComponent::FileView;
+        self.file_view.set_has_focus(true);
     }
 }
 
@@ -80,7 +94,7 @@ impl Component for RootComponent {
             left: 1,
             top: 1,
             width: 32,
-            height: rect.height,
+            height: rect.height - margin,
         };
         let divider_rect = Rect {
             left: file_pane_rect.width + 1 + margin,
@@ -92,7 +106,7 @@ impl Component for RootComponent {
             left: file_pane_rect.width + 1 + divider_rect.width + 2 * margin,
             top: 1,
             width: rect.width - file_pane_rect.width - 2 * margin,
-            height: rect.height,
+            height: rect.height - margin,
         };
         if self.file_pane.needs_paint() {
             self.file_pane.paint(stream, file_pane_rect)?;
@@ -103,16 +117,31 @@ impl Component for RootComponent {
         if self.divider.needs_paint() {
             self.divider.paint(stream, divider_rect)?;
         }
+
         stream.flush()
     }
 
     fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
-        if self.file_pane.dispatch_event(event.clone()) {
-            return true;
+        // Swap dispatch priority depending on focus
+        match self.focused_component {
+            FocusedComponent::FilePane => {
+                if self.file_pane.dispatch_event(event.clone()) {
+                    return true;
+                }
+                if self.file_view.dispatch_event(event.clone()) {
+                    return true;
+                }
+            }
+            FocusedComponent::FileView => {
+                if self.file_view.dispatch_event(event.clone()) {
+                    return true;
+                }
+                if self.file_pane.dispatch_event(event.clone()) {
+                    return true;
+                }
+            }
         }
-        if self.file_view.dispatch_event(event.clone()) {
-            return true;
-        }
+
         match event {
             termion::event::Event::Key(key) => match key {
                 Key::Ctrl(c) => {
@@ -125,6 +154,7 @@ impl Component for RootComponent {
                 }
                 _ => false,
             },
+
             _ => false,
         }
     }
@@ -143,7 +173,8 @@ impl Component for RootComponent {
     fn dispatch_events(&mut self, events: &[Event]) {
         for event in events {
             match event {
-                Event::FileItemSelected(index_entry) => self.open_file(index_entry),
+                Event::FileItemSelected(index_entry) => self.show_file_preview(index_entry),
+                Event::FileItemOpened(index_entry) => self.open_file(index_entry),
             }
         }
 

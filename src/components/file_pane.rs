@@ -245,25 +245,33 @@ impl DirectoryTreeComponent {
     fn open_selected_item(&mut self) {
         let next_current_node = match self.selected_item_index {
             None => None,
-            Some(selected_index) => {
-                match self.file_tree_node_at_index(selected_index) {
-                    None => None,
-                    Some(file_tree_node) => match file_tree_node {
-                        FileTreeNode::File(_) => {
-                            // TODO open file!
-                            None
-                        }
-                        FileTreeNode::Folder(file_tree_folder) => {
-                            Some(FileTreeNode::Folder(file_tree_folder.clone()))
-                        }
-                    },
-                }
-            }
+            Some(selected_index) => match self.file_tree_node_at_index(selected_index) {
+                None => None,
+                Some(file_tree_node) => match file_tree_node {
+                    FileTreeNode::File(file_index_entry) => {
+                        Some(FileTreeNode::File(file_index_entry.clone()))
+                    }
+                    FileTreeNode::Folder(file_tree_folder) => {
+                        Some(FileTreeNode::Folder(file_tree_folder.clone()))
+                    }
+                },
+            },
         };
 
-        if let Some(next_current_node) = next_current_node {
-            self.push_node_stack(next_current_node);
+        match next_current_node {
+            None => {}
+            Some(next_current_node) => {
+                if let FileTreeNode::File(file_index_entry) = next_current_node {
+                    self.open_file(file_index_entry);
+                } else {
+                    self.push_node_stack(next_current_node);
+                }
+            }
         }
+    }
+
+    fn open_file(&mut self, file_index_entry: FileIndexEntry) {
+        self.events.push(Event::FileItemOpened(file_index_entry))
     }
 
     fn push_node_stack(&mut self, next_current_node: FileTreeNode) {

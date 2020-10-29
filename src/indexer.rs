@@ -87,8 +87,6 @@ impl IndexError {
     }
 }
 
-pub type IndexResult<T> = Result<T, IndexError>;
-
 impl std::fmt::Display for IndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error indexing: {}", self.message)

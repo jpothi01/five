@@ -44,7 +44,7 @@ impl Component for DividerComponent {
                 stream,
                 "{}{} ",
                 termion::cursor::Goto(rect.left, row),
-                termion::color::Bg(termion::color::Yellow)
+                termion::color::Bg(termion::color::LightBlue)
             )?;
         }
         write!(stream, "{}", termion::color::Bg(termion::color::Reset))?;

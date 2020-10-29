@@ -17,7 +17,7 @@ pub fn paint_truncated_text<Writer: Write>(
 }
 
 pub fn paint_empty_lines<Writer: Write>(stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
-    for row in rect.top..=rect.top + rect.height {
+    for row in rect.top..rect.top + rect.height {
         write!(
             stream,
             "{}{}",

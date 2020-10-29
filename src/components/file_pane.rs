@@ -181,11 +181,24 @@ impl Component for QuickOpenComponent {
     fn dispatch_events(&mut self, _: &[Event]) {}
 }
 
+struct FileTreeCache {
+    root_node: FileTreeNode,
+    node_stack: Vec<FileTreeNode>,
+}
+
+impl FileTreeCache {
+    pub fn new(file_tree: &FileTreeNode) -> FileTreeCache {
+        FileTreeCache {
+            root_node: file_tree.clone(),
+            node_stack: vec![file_tree.clone()],
+        }
+    }
+}
+
 struct DirectoryTreeComponent {
     selected_item_index: Option<usize>,
     needs_paint: Cell<bool>,
-    parent_node: Option<FileTreeNode>,
-    current_node: Option<FileTreeNode>,
+    file_tree_cache: Option<FileTreeCache>,
     events: Vec<Event>,
 }
 
@@ -193,16 +206,16 @@ impl DirectoryTreeComponent {
     fn update_index(&mut self, index: Index) {
         self.needs_paint.set(true);
 
-        match self.current_node {
-            None => self.current_node = Some(index.tree),
+        match self.file_tree_cache {
+            None => self.file_tree_cache = Some(FileTreeCache::new(&index.tree)),
             _ => {}
         }
     }
 
     fn num_current_items(&self) -> usize {
-        match &self.current_node {
+        match &self.file_tree_cache {
             None => 0,
-            Some(file_tree_node) => match file_tree_node {
+            Some(file_tree_cache) => match file_tree_cache.node_stack.last().unwrap() {
                 FileTreeNode::File(_) => 1,
                 FileTreeNode::Folder(file_tree_folder) => file_tree_folder.children.len(),
             },
@@ -210,9 +223,9 @@ impl DirectoryTreeComponent {
     }
 
     fn file_tree_node_at_index(&self, index: usize) -> Option<&FileTreeNode> {
-        match &self.current_node {
+        match &self.file_tree_cache {
             None => None,
-            Some(file_tree_node) => match file_tree_node {
+            Some(file_tree_cache) => match file_tree_cache.node_stack.last().unwrap() {
                 FileTreeNode::File(_) => None,
                 FileTreeNode::Folder(file_tree_folder) => file_tree_folder.children.get(index),
             },
@@ -248,9 +261,29 @@ impl DirectoryTreeComponent {
             }
         };
 
-        self.parent_node = self.current_node.clone();
-        self.current_node = next_current_node;
-        self.needs_paint.set(true);
+        if let Some(next_current_node) = next_current_node {
+            self.push_node_stack(next_current_node);
+        }
+    }
+
+    fn push_node_stack(&mut self, next_current_node: FileTreeNode) {
+        if let Some(file_tree_cache) = &mut self.file_tree_cache {
+            file_tree_cache.node_stack.push(next_current_node);
+            self.selected_item_index = None
+        }
+    }
+
+    fn pop_node_stack(&mut self) -> bool {
+        if let Some(file_tree_cache) = &mut self.file_tree_cache {
+            if file_tree_cache.node_stack.len() > 1 {
+                file_tree_cache.node_stack.pop();
+                self.selected_item_index = None;
+            }
+
+            true
+        } else {
+            false
+        }
     }
 
     fn paint_directory<Writer: Write>(
@@ -311,8 +344,11 @@ impl Component for DirectoryTreeComponent {
         self.needs_paint.take()
     }
     fn paint<Writer: Write>(&self, stream: &mut Writer, rect: Rect) -> std::io::Result<()> {
-        if let Some(file_tree_node) = &self.current_node {
-            if let FileTreeNode::Folder(file_tree_folder) = file_tree_node {
+        if let Some(file_tree_cache) = &self.file_tree_cache {
+            assert!(file_tree_cache.node_stack.len() > 0);
+            if let FileTreeNode::Folder(file_tree_folder) =
+                file_tree_cache.node_stack.last().unwrap()
+            {
                 self.paint_directory(stream, &file_tree_folder, rect)
             } else {
                 // TODO: single file support
@@ -353,14 +389,7 @@ impl Component for DirectoryTreeComponent {
                     };
                     true
                 }
-                Key::Backspace => {
-                    if let Some(file_tree_node) = self.parent_node.clone() {
-                        self.current_node = self.parent_node.clone();
-                        true
-                    } else {
-                        false
-                    }
-                }
+                Key::Backspace => self.pop_node_stack(),
                 Key::Char(c) => match c {
                     '\n' => {
                         self.open_selected_item();
@@ -373,6 +402,8 @@ impl Component for DirectoryTreeComponent {
             _ => false,
         };
         if handled {
+            self.needs_paint.set(true);
+
             let event = if let Some(selected_index) = self.selected_item_index {
                 if let Some(file_index_entry) = self.file_index_entry_at_index(selected_index) {
                     Some(Event::FileItemSelected(file_index_entry.clone()))
@@ -412,8 +443,7 @@ impl FilePaneComponent {
             directory_tree: DirectoryTreeComponent {
                 selected_item_index: None,
                 needs_paint: Cell::new(true),
-                parent_node: None,
-                current_node: None,
+                file_tree_cache: None,
                 events: Vec::new(),
             },
             quick_open: QuickOpenComponent::new(),

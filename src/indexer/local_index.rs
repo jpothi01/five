@@ -2,12 +2,12 @@ use crate::indexer::index::*;
 use std::fs::read_dir;
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 struct BackgroundThreadState {
-    cwd: String,
+    cwd: PathBuf,
     index: Arc<Mutex<Option<Index>>>,
 }
 
@@ -66,10 +66,10 @@ pub struct LocalIndexer {
 }
 
 impl LocalIndexer {
-    pub fn new(cwd: &str) -> LocalIndexer {
+    pub fn new(cwd: PathBuf) -> LocalIndexer {
         let index = Arc::new(Mutex::new(None));
         let mut background_thread_state = BackgroundThreadState {
-            cwd: String::from(cwd),
+            cwd: cwd,
             index: Arc::clone(&index),
         };
         LocalIndexer {

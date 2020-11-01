@@ -19,6 +19,7 @@
 use components::component::Component;
 use std::convert::TryFrom;
 use std::io::{stdin, Write};
+use std::path::PathBuf;
 use structopt::StructOpt;
 use termion::event::Event;
 use termion::event::Key;
@@ -33,8 +34,25 @@ mod painting_utils;
 mod quick_open;
 mod terminal;
 
+use indexer::index::Indexer;
+use indexer::local_index::LocalIndexer;
+use indexer::ssh_index::SshIndexer;
+
+struct LocalConfig {
+    directory_path: PathBuf,
+}
+
+struct SshConfig {
+    ssh_args: Vec<String>,
+}
+
+enum LocationConfig {
+    Local(LocalConfig),
+    Remote(SshConfig),
+}
+
 struct Config {
-    cwd: String,
+    location_config: LocationConfig,
 }
 
 fn run(config: Config) {
@@ -53,8 +71,13 @@ fn run(config: Config) {
         height: terminal_height,
     };
 
-    let indexer = indexer::local_index::LocalIndexer::new(&config.cwd);
-    let mut root_component = components::root::RootComponent::new(&indexer);
+    let indexer: Box<dyn Indexer> = match config.location_config {
+        LocationConfig::Local(local_config) => {
+            Box::new(LocalIndexer::new(local_config.directory_path))
+        }
+        LocationConfig::Remote(ssh_config) => Box::new(SshIndexer::new(ssh_config.ssh_args)),
+    };
+    let mut root_component = components::root::RootComponent::new(&*indexer);
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 
@@ -86,17 +109,35 @@ fn run(config: Config) {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "five", about = "A brutal text editor.")]
 struct Options {
+    #[structopt(long = "ssh")]
+    ssh: bool,
+
     #[structopt(
         parse(from_str),
         help = "Directory to open. Current directory if unspecified."
     )]
-    directory: Option<String>,
+    directory_or_ssh_options: Vec<String>,
 }
 
 fn main() {
     let options = Options::from_args();
-    let config = Config {
-        cwd: options.directory.unwrap_or(String::from(".")),
+    let config = if options.ssh {
+        Config {
+            location_config: LocationConfig::Remote(SshConfig {
+                ssh_args: options.directory_or_ssh_options,
+            }),
+        }
+    } else {
+        Config {
+            location_config: LocationConfig::Local(LocalConfig {
+                directory_path: if options.directory_or_ssh_options.len() == 0 {
+                    PathBuf::from(".")
+                } else {
+                    PathBuf::from(options.directory_or_ssh_options.first().unwrap())
+                },
+            }),
+        }
     };
+
     run(config);
 }

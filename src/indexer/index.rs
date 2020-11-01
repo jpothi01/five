@@ -17,13 +17,10 @@
 */
 
 use std::error::Error;
-use std::fs::Metadata;
-use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct FileIndexEntry {
-    pub metadata: Metadata,
-    pub path: PathBuf,
+    pub path: String,
     pub file_name: String,
     pub normalized_filename: String,
 }

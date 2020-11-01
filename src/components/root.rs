@@ -25,6 +25,7 @@ use crate::indexer::index::FileIndexEntry;
 use crate::indexer::index::Indexer;
 use crate::terminal::Rect;
 use std::io::Write;
+use std::path::Path;
 use termion::event::Key;
 
 enum FocusedComponent {
@@ -63,15 +64,14 @@ impl<'a> RootComponent<'a> {
     }
 
     fn show_file_preview(&mut self, index_entry: &FileIndexEntry) {
-        match std::fs::read_to_string(&index_entry.path) {
+        let path = Path::new(&index_entry.path);
+        match std::fs::read_to_string(&path) {
             Err(_) => {
                 // TODO: smart error handling for non-utf-8 strings
-                self.file_view
-                    .set_binary_file_content(index_entry.path.as_path());
+                self.file_view.set_binary_file_content(path);
             }
             Ok(content) => {
-                self.file_view
-                    .set_text_file_content(index_entry.path.as_path(), content);
+                self.file_view.set_text_file_content(path, content);
             }
         }
     }

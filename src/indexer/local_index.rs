@@ -34,8 +34,7 @@ fn get_node_for_dir(dir: &Path) -> Result<FileTreeNode, IndexError> {
         }
         let normalized_filename = file_name.as_ref().unwrap().to_lowercase();
         let file_index_entry = FileIndexEntry {
-            metadata: metadata,
-            path: path,
+            path: String::from(path.to_str().unwrap()),
             file_name: file_name.unwrap(),
             normalized_filename: normalized_filename,
         };

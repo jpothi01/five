@@ -48,9 +48,8 @@ fn get_node_for_dir(dir: &Path) -> Result<FileTreeNode, IndexError> {
 
 impl BackgroundThreadState {
     fn run(&mut self) {
-        let cwd = self.cwd.clone();
-        let initial_dir = Path::new(&cwd);
-        let root_node = get_node_for_dir(initial_dir).expect("Could not index!");
+        let initial_dir = std::fs::canonicalize(&self.cwd).unwrap();
+        let root_node = get_node_for_dir(initial_dir.as_path()).expect("Could not index!");
         match self.index.lock() {
             Err(_) => {}
             Ok(mut index) => {

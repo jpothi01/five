@@ -18,7 +18,7 @@
 
 use crate::components::component::Component;
 use crate::event::Event;
-use crate::indexer::{FileIndexEntry, FileTreeFolder, FileTreeNode, Index};
+use crate::indexer::index::{FileIndexEntry, FileTreeFolder, FileTreeNode, Index};
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::Rect;

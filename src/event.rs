@@ -16,7 +16,7 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::indexer::FileIndexEntry;
+use crate::indexer::index::FileIndexEntry;
 
 #[derive(Clone)]
 pub enum Event {

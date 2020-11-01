@@ -16,8 +16,8 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::indexer::FileIndexEntry;
-use crate::indexer::Index;
+use crate::indexer::index::FileIndexEntry;
+use crate::indexer::index::Index;
 
 pub type QuickOpenResult = FileIndexEntry;
 

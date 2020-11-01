@@ -53,7 +53,8 @@ fn run(config: Config) {
         height: terminal_height,
     };
 
-    let mut root_component = components::root::RootComponent::new(&config.cwd);
+    let indexer = indexer::local_index::LocalIndexer::new(&config.cwd);
+    let mut root_component = components::root::RootComponent::new(&indexer);
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 

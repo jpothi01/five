@@ -21,9 +21,8 @@ use crate::components::divider::DividerComponent;
 use crate::components::file_pane::FilePaneComponent;
 use crate::components::file_view::FileViewComponent;
 use crate::event::Event;
-use crate::indexer::FileIndexEntry;
-use crate::indexer::Indexer;
-use crate::painting_utils::paint_empty_lines;
+use crate::indexer::index::FileIndexEntry;
+use crate::indexer::index::Indexer;
 use crate::terminal::Rect;
 use std::io::Write;
 use termion::event::Key;
@@ -33,18 +32,18 @@ enum FocusedComponent {
     FileView,
 }
 
-pub struct RootComponent {
-    indexer: Indexer,
+pub struct RootComponent<'a> {
+    indexer: &'a dyn Indexer,
     file_pane: FilePaneComponent,
     file_view: FileViewComponent,
     divider: DividerComponent,
     focused_component: FocusedComponent,
 }
 
-impl RootComponent {
-    pub fn new(cwd: &str) -> RootComponent {
+impl<'a> RootComponent<'a> {
+    pub fn new(indexer: &dyn Indexer) -> RootComponent {
         RootComponent {
-            indexer: Indexer::new(cwd),
+            indexer: indexer,
             file_pane: FilePaneComponent::new(),
             file_view: FileViewComponent::new(),
             divider: DividerComponent::new(),
@@ -84,7 +83,7 @@ impl RootComponent {
     }
 }
 
-impl Component for RootComponent {
+impl<'a> Component for RootComponent<'a> {
     fn needs_paint(&self) -> bool {
         self.file_view.needs_paint() || self.file_pane.needs_paint() || self.divider.needs_paint()
     }

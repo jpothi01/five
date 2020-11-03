@@ -25,7 +25,8 @@ five path/to/files
 
 Open a remote directory:
 ```
-five root@192.168.0.1:/path/to/remote/files
+five --ssh root@192.168.0.1:/path/to/remote/files
+five --ssh -- root@192.168.0.1:/with/complex/ssh/command -p 1337 -i ~/.ssh/id_rsa
 ```
 
 # Features
@@ -38,4 +39,4 @@ five root@192.168.0.1:/path/to/remote/files
 TODO
 
 ## Remote directory
-TODO and TOIMPLEMENT 
+TODO 

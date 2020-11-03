@@ -28,7 +28,6 @@ use termion;
 pub struct FileViewComponent {
     content: String,
     num_content_lines: usize,
-    file_name: String,
     file_path: String,
     start_line: usize,
     has_focus: bool,
@@ -47,7 +46,6 @@ impl FileViewComponent {
         FileViewComponent {
             content: String::new(),
             num_content_lines: 0,
-            file_name: String::new(),
             file_path: String::new(),
             start_line: 0usize,
             has_focus: false,

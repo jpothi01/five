@@ -183,14 +183,12 @@ impl Component for QuickOpenComponent {
 }
 
 struct FileTreeCache {
-    root_node: FileTreeNode,
     node_stack: Vec<FileTreeNode>,
 }
 
 impl FileTreeCache {
     pub fn new(file_tree: &FileTreeNode) -> FileTreeCache {
         FileTreeCache {
-            root_node: file_tree.clone(),
             node_stack: vec![file_tree.clone()],
         }
     }
@@ -229,16 +227,6 @@ impl DirectoryTreeComponent {
             Some(file_tree_cache) => match file_tree_cache.node_stack.last().unwrap() {
                 FileTreeNode::File(_) => None,
                 FileTreeNode::Folder(file_tree_folder) => file_tree_folder.children.get(index),
-            },
-        }
-    }
-
-    fn file_index_entry_at_index(&self, index: usize) -> Option<&FileIndexEntry> {
-        match self.file_tree_node_at_index(index) {
-            None => None,
-            Some(file_tree_node) => match file_tree_node {
-                FileTreeNode::Folder(_) => None,
-                FileTreeNode::File(file_index_entry) => Some(file_index_entry),
             },
         }
     }

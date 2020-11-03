@@ -61,7 +61,9 @@ impl BackgroundThreadState {
 }
 
 pub struct LocalIndexer {
-    thread: thread::JoinHandle<()>,
+    // We use the optional here to allow joining in the destructor:
+    // https://users.rust-lang.org/t/spawn-threads-and-join-in-destructor/1613/2
+    thread: Option<thread::JoinHandle<()>>,
     index: Arc<Mutex<Option<Index>>>,
 }
 
@@ -73,9 +75,19 @@ impl LocalIndexer {
             index: Arc::clone(&index),
         };
         LocalIndexer {
-            thread: thread::spawn(move || background_thread_state.run()),
+            thread: Some(thread::spawn(move || background_thread_state.run())),
             index: index,
         }
+    }
+}
+
+impl Drop for LocalIndexer {
+    fn drop(&mut self) {
+        self.thread
+            .take()
+            .unwrap()
+            .join()
+            .expect("Could not join thread");
     }
 }
 

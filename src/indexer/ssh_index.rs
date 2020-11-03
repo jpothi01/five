@@ -43,11 +43,11 @@ enum FindOutput {
 fn parse_find_line(line: &str) -> Option<FindOutput> {
     // Example:
     //    658744      4 -rw-r--r--   1 root     root          148 Aug 17  2015 ./.profile
-    const file_attributes_column_index: usize = 2;
+    const FILE_ATTRIBUTES_COLUMN_INDEX: usize = 2;
 
     let mut columns = line.split_ascii_whitespace();
 
-    let file_attributes_column = columns.nth(file_attributes_column_index);
+    let file_attributes_column = columns.nth(FILE_ATTRIBUTES_COLUMN_INDEX);
     if file_attributes_column.is_none() {
         return None;
     }
@@ -165,7 +165,7 @@ impl BackgroundThreadState {
 }
 
 pub struct SshIndexer {
-    thread: thread::JoinHandle<()>,
+    thread: Option<thread::JoinHandle<()>>,
     index: Arc<Mutex<Option<Index>>>,
 }
 
@@ -177,9 +177,19 @@ impl SshIndexer {
             index: Arc::clone(&index),
         };
         SshIndexer {
-            thread: thread::spawn(move || background_thread_state.run()),
+            thread: Some(thread::spawn(move || background_thread_state.run())),
             index: index,
         }
+    }
+}
+
+impl Drop for SshIndexer {
+    fn drop(&mut self) {
+        self.thread
+            .take()
+            .unwrap()
+            .join()
+            .expect("Could not join thread");
     }
 }
 

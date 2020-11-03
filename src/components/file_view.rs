@@ -23,7 +23,6 @@ use crate::terminal::Rect;
 use std::cell::Cell;
 use std::convert::TryFrom;
 use std::io::Write;
-use std::path::Path;
 use termion;
 
 pub struct FileViewComponent {
@@ -35,6 +34,12 @@ pub struct FileViewComponent {
     has_focus: bool,
     file_cursor_position: (usize, usize),
     needs_paint: Cell<bool>,
+}
+
+pub enum FileViewContent {
+    TextFile(String, String),
+    BinaryFile(String),
+    Folder(String, Vec<String>),
 }
 
 impl FileViewComponent {
@@ -51,18 +56,29 @@ impl FileViewComponent {
         }
     }
 
-    pub fn set_text_file_content(&mut self, file_path: &Path, content: String) {
-        self.content = content;
-        self.num_content_lines = self.content.lines().count();
-        self.file_path = String::from(file_path.to_str().unwrap_or(""));
-        self.start_line = 0;
-        self.needs_paint.set(true);
-    }
+    pub fn set_content(&mut self, content: FileViewContent) {
+        match content {
+            FileViewContent::TextFile(path, content) => {
+                self.content = content;
+                self.num_content_lines = self.content.lines().count();
+                self.file_path = path;
+            }
+            FileViewContent::BinaryFile(path) => {
+                self.content = String::from("<binary file>");
+                self.num_content_lines = 1;
+                self.file_path = path;
+            }
+            FileViewContent::Folder(path, mut children) => {
+                self.num_content_lines = children.len();
+                self.content = children
+                    .iter_mut()
+                    .map(|child| String::from("./") + child)
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                self.file_path = path;
+            }
+        };
 
-    pub fn set_binary_file_content(&mut self, file_path: &Path) {
-        self.content = String::from("<binary file>");
-        self.num_content_lines = 1;
-        self.file_path = String::from(file_path.to_str().unwrap_or(""));
         self.start_line = 0;
         self.needs_paint.set(true);
     }

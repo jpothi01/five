@@ -16,10 +16,10 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::indexer::index::FileIndexEntry;
+use crate::indexer::index::{FileIndexEntry, FileTreeNode};
 
 #[derive(Clone)]
 pub enum Event {
-    FileItemSelected(FileIndexEntry),
+    FileItemSelected(FileTreeNode),
     FileItemOpened(FileIndexEntry),
 }

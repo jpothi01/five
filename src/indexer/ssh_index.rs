@@ -118,6 +118,7 @@ fn get_file_tree_node(
             let node = FileTreeNode::Folder(FileTreeFolder {
                 children,
                 folder_name,
+                path: String::from(folder_path),
             });
             Ok((next_slice, node))
         }

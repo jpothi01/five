@@ -19,10 +19,10 @@
 use crate::components::component::Component;
 use crate::components::divider::DividerComponent;
 use crate::components::file_pane::FilePaneComponent;
-use crate::components::file_view::FileViewComponent;
+use crate::components::file_view::{FileViewComponent, FileViewContent};
 use crate::event::Event;
-use crate::indexer::index::FileIndexEntry;
 use crate::indexer::index::Indexer;
+use crate::indexer::index::{FileIndexEntry, FileTreeFolder, FileTreeNode};
 use crate::terminal::Rect;
 use std::io::Write;
 use std::path::Path;
@@ -68,12 +68,31 @@ impl<'a> RootComponent<'a> {
         match std::fs::read_to_string(&path) {
             Err(_) => {
                 // TODO: smart error handling for non-utf-8 strings
-                self.file_view.set_binary_file_content(path);
+                self.file_view
+                    .set_content(FileViewContent::BinaryFile(String::from(
+                        path.to_str().unwrap(),
+                    )));
             }
             Ok(content) => {
-                self.file_view.set_text_file_content(path, content);
+                self.file_view.set_content(FileViewContent::TextFile(
+                    String::from(path.to_str().unwrap()),
+                    content,
+                ));
             }
         }
+    }
+
+    fn show_folder_preview(&mut self, folder: &FileTreeFolder) {
+        let children: Vec<String> = folder
+            .children
+            .iter()
+            .map(|child| match &child {
+                FileTreeNode::File(file_index_entry) => file_index_entry.file_name.clone(),
+                FileTreeNode::Folder(file_tree_folder) => file_tree_folder.folder_name.clone(),
+            })
+            .collect();
+        self.file_view
+            .set_content(FileViewContent::Folder(folder.path.clone(), children))
     }
 
     fn open_file(&mut self, index_entry: &FileIndexEntry) {
@@ -172,7 +191,14 @@ impl<'a> Component for RootComponent<'a> {
     fn dispatch_events(&mut self, events: &[Event]) {
         for event in events {
             match event {
-                Event::FileItemSelected(index_entry) => self.show_file_preview(index_entry),
+                Event::FileItemSelected(file_tree_node) => match file_tree_node {
+                    FileTreeNode::File(file_index_entry) => {
+                        self.show_file_preview(file_index_entry)
+                    }
+                    FileTreeNode::Folder(file_tree_folder) => {
+                        self.show_folder_preview(file_tree_folder)
+                    }
+                },
                 Event::FileItemOpened(index_entry) => self.open_file(index_entry),
             }
         }

@@ -43,6 +43,7 @@ fn get_node_for_dir(dir: &Path) -> Result<FileTreeNode, IndexError> {
     Ok(FileTreeNode::Folder(FileTreeFolder {
         children: children,
         folder_name: String::from(dir.file_name().unwrap().to_str().unwrap()),
+        path: String::from(dir.to_str().unwrap()),
     }))
 }
 

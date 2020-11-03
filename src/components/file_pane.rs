@@ -168,9 +168,9 @@ impl Component for QuickOpenComponent {
         };
         if handled {
             if let Some(selected_index) = self.selected_item_index {
-                self.events.push(Event::FileItemSelected(
+                self.events.push(Event::FileItemSelected(FileTreeNode::File(
                     self.results[selected_index].clone(),
-                ));
+                )));
             }
         }
         handled
@@ -414,8 +414,8 @@ impl Component for DirectoryTreeComponent {
             self.needs_paint.set(true);
 
             let event = if let Some(selected_index) = self.selected_item_index {
-                if let Some(file_index_entry) = self.file_index_entry_at_index(selected_index) {
-                    Some(Event::FileItemSelected(file_index_entry.clone()))
+                if let Some(file_tree_node) = self.file_tree_node_at_index(selected_index) {
+                    Some(Event::FileItemSelected(file_tree_node.clone()))
                 } else {
                     None
                 }

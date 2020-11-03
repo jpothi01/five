@@ -55,6 +55,7 @@ impl FileIndexEntry {
 pub struct FileTreeFolder {
     pub children: Vec<FileTreeNode>,
     pub folder_name: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone)]

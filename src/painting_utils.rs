@@ -7,9 +7,10 @@ pub fn paint_truncated_text<Writer: Write>(
     text: &str,
     target_width: u16,
 ) -> std::io::Result<()> {
-    let text_slice = match text.char_indices().nth(target_width as usize) {
-        None => text,
-        Some((index, _)) => &text[0..index],
+    let cleaned_text = text.replace("\t", "     ");
+    let text_slice = match cleaned_text.char_indices().nth(target_width as usize) {
+        None => &cleaned_text,
+        Some((index, _)) => &cleaned_text[0..index],
     };
     write!(stream, "{}", text_slice)?;
     let num_spaces = (target_width as usize) - text_slice.chars().count();

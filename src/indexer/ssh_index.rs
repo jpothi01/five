@@ -70,8 +70,62 @@ fn parse_find_line(line: &str) -> Option<FindOutput> {
     }
 }
 
-fn get_file_tree_node(find_output: &FindOutput) -> Result<FileTreeNode, IndexError> {
-    Err(IndexError::new("todo"))
+// Assumption: When we encounter a directory in the FindOutput list, all following entries are the
+// directory's contents until all its contents have been listed.
+fn get_file_tree_node(
+    find_output: &[FindOutput],
+) -> Result<(&[FindOutput], FileTreeNode), IndexError> {
+    let current_item = find_output.get(0);
+    if current_item.is_none() {
+        return Err(IndexError::new("No directory found"));
+    }
+
+    match current_item.unwrap() {
+        FindOutput::Folder(path) => {
+            let folder_path = if let Some(folder_path) = path.to_str() {
+                folder_path
+            } else {
+                return Err(IndexError::new("Could not get folder path"));
+            };
+
+            let folder_name = if let Some(folder_name) = path.file_name() {
+                if let Some(folder_name_string) = folder_name.to_str() {
+                    String::from(folder_name_string)
+                } else {
+                    return Err(IndexError::new("Could not convert folder name"));
+                }
+            } else {
+                return Err(IndexError::new("Could not get folder name"));
+            };
+
+            let mut children: Vec<FileTreeNode> = Vec::new();
+            let mut next_slice = &find_output[1..];
+
+            let should_continue = |slice: &[FindOutput]| match slice.first() {
+                None => false,
+                Some(find_output) => match find_output {
+                    FindOutput::File(_) => true,
+                    FindOutput::Folder(path) => path.starts_with(folder_path),
+                },
+            };
+
+            while should_continue(next_slice) {
+                let (next_slice_, child_node) = get_file_tree_node(next_slice)?;
+                next_slice = next_slice_;
+                children.push(child_node);
+            }
+
+            let node = FileTreeNode::Folder(FileTreeFolder {
+                children,
+                folder_name,
+            });
+            Ok((next_slice, node))
+        }
+        FindOutput::File(path) => match FileIndexEntry::new(path) {
+            Some(file_index_entry) => Ok((&find_output[1..], FileTreeNode::File(file_index_entry))),
+            None => Err(IndexError::new("Could not create FileIndexEntry")),
+        },
+    }
 }
 
 fn retrieve_index(config: &SshConfig) -> Result<Index, IndexError> {
@@ -83,13 +137,8 @@ fn retrieve_index(config: &SshConfig) -> Result<Index, IndexError> {
     let output = Command::new("ssh").args(&args).output();
     let output_string = String::from_utf8(output.unwrap().stdout).unwrap();
     let find_output: Vec<FindOutput> = output_string.lines().filter_map(parse_find_line).collect();
-    println!("{:?}", find_output);
 
-    if let Some(root_find_output) = find_output.first() {
-        Ok(Index::new(get_file_tree_node(root_find_output)?))
-    } else {
-        Err(IndexError::new("No results found for directory"))
-    }
+    Ok(Index::new(get_file_tree_node(&find_output)?.1))
 }
 
 struct BackgroundThreadState {

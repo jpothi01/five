@@ -17,12 +17,38 @@
 */
 
 use std::error::Error;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct FileIndexEntry {
     pub path: String,
     pub file_name: String,
     pub normalized_filename: String,
+}
+
+impl FileIndexEntry {
+    pub fn new(path: &PathBuf) -> Option<FileIndexEntry> {
+        let path_string = if let Some(path) = path.to_str() {
+            String::from(path)
+        } else {
+            return None;
+        };
+        let file_name = if let Some(file_name) = path.file_name() {
+            if let Some(file_name_string) = file_name.to_str() {
+                String::from(file_name_string)
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        };
+        let normalized_filename = file_name.to_lowercase();
+        Some(FileIndexEntry {
+            path: path_string,
+            file_name,
+            normalized_filename,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -339,7 +339,7 @@ impl DirectoryTreeComponent {
                 top: row,
                 left: rect.left,
                 width: rect.width,
-                height: rect.height - row + 1,
+                height: rect.height + 1 - row,
             },
         )?;
         self.needs_paint.set(false);

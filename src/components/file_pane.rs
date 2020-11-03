@@ -23,6 +23,7 @@ use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::quick_open::{get_quick_open_results, QuickOpenResult};
 use crate::terminal::Rect;
 use std::cell::Cell;
+use std::cmp::min;
 use std::io::Write;
 use termion::event::Key;
 
@@ -339,7 +340,7 @@ impl DirectoryTreeComponent {
                 top: row,
                 left: rect.left,
                 width: rect.width,
-                height: rect.height + 1 - row,
+                height: rect.height + 1 - min(row, rect.height + 1),
             },
         )?;
         self.needs_paint.set(false);

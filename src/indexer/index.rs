@@ -18,20 +18,20 @@
 
 use std::error::Error;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FileIndexEntry {
     pub path: String,
     pub file_name: String,
     pub normalized_filename: String,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FileTreeFolder {
     pub children: Vec<FileTreeNode>,
     pub folder_name: String,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum FileTreeNode {
     File(FileIndexEntry),
     Folder(FileTreeFolder),
@@ -50,7 +50,7 @@ impl FileTreeNode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Index {
     pub tree: FileTreeNode,
     pub files: Vec<FileIndexEntry>,

@@ -36,14 +36,11 @@ mod terminal;
 
 use indexer::index::Indexer;
 use indexer::local_index::LocalIndexer;
+use indexer::ssh_index::SshConfig;
 use indexer::ssh_index::SshIndexer;
 
 struct LocalConfig {
     directory_path: PathBuf,
-}
-
-struct SshConfig {
-    ssh_args: Vec<String>,
 }
 
 enum LocationConfig {
@@ -75,13 +72,17 @@ fn run(config: Config) {
         LocationConfig::Local(local_config) => {
             Box::new(LocalIndexer::new(local_config.directory_path))
         }
-        LocationConfig::Remote(ssh_config) => Box::new(SshIndexer::new(ssh_config.ssh_args)),
+        LocationConfig::Remote(ssh_config) => Box::new(SshIndexer::new(ssh_config)),
     };
     let mut root_component = components::root::RootComponent::new(&*indexer);
 
     root_component.paint(&mut stdout, root_rect).unwrap();
 
     for c in stdin.events() {
+        if c.is_err() {
+            continue;
+        }
+
         let event = c.unwrap();
 
         match event {
@@ -123,9 +124,9 @@ fn main() {
     let options = Options::from_args();
     let config = if options.ssh {
         Config {
-            location_config: LocationConfig::Remote(SshConfig {
-                ssh_args: options.directory_or_ssh_options,
-            }),
+            location_config: LocationConfig::Remote(SshConfig::new(
+                options.directory_or_ssh_options,
+            )),
         }
     } else {
         Config {

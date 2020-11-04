@@ -27,6 +27,7 @@ use termion::input::MouseTerminal;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+mod buffer;
 mod components;
 mod event;
 mod indexer;

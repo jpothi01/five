@@ -11,3 +11,4 @@ termion = "*"
 term_size = "*"
 chrono = "*"
 structopt = { version = "0.3", default-features = false }
+unicode-segmentation = "1.6.0"

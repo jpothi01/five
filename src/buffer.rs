@@ -126,12 +126,14 @@ impl Buffer {
     fn move_cursor_left(&mut self, number_of_characters: isize) {
         debug_assert!(number_of_characters > 0);
 
-        let (left, right) = self.get();
+        let (left, _) = self.get();
         let mut graphemes = left.grapheme_indices(true);
-        let target_character_index = graphemes
-            .nth_back((number_of_characters - 1) as usize)
-            .unwrap()
-            .0;
+        let maybe_target_character_index = graphemes.nth_back((number_of_characters - 1) as usize);
+
+        let target_character_index = match maybe_target_character_index {
+            Some((index, _)) => index,
+            None => 0,
+        };
         let source_copy_range = target_character_index..self.left_string_range.end;
         let destination_copy_start_index = self.right_string_range.start - source_copy_range.len();
         self.buffer
@@ -174,4 +176,36 @@ mod tests {
         buffer.move_cursor(-3);
         assert_eq!(buffer.get(), ("Test out this weird character", ": a̐"));
     }
+
+    #[test]
+    fn move_cursor_left_saturating() {
+        let mut buffer = Buffer::new();
+        buffer.insert_at_cursor("Not enough room");
+        buffer.move_cursor(-1000);
+        assert_eq!(buffer.get(), ("", "Not enough room"));
+    }
+
+    #[test]
+    fn move_cursor_nowhere() {
+        let mut buffer = Buffer::new();
+        buffer.insert_at_cursor("Don't even move the dang cursor");
+        buffer.move_cursor(0);
+        assert_eq!(buffer.get(), ("Don't even move the dang cursor", ""));
+    }
+
+    // #[test]
+    // fn move_cursor_right_1() {
+    //     let mut buffer = Buffer::new();
+    //     buffer.insert_at_cursor("Let's move the cursor 😎");
+    //     buffer.move_cursor(-1);
+    //     assert_eq!(buffer.get(), ("Let's move the cursor ", "😎"));
+    // }
+
+    // #[test]
+    // fn move_cursor_right_2() {
+    //     let mut buffer = Buffer::new();
+    //     buffer.insert_at_cursor("Test out this weird character: a̐");
+    //     buffer.move_cursor(-3);
+    //     assert_eq!(buffer.get(), ("Test out this weird character", ": a̐"));
+    // }
 }

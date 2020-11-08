@@ -73,7 +73,7 @@
 
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
-const INITIAL_CAPACITY: usize = 10 * 1024;
+const DEFAULT_INITIAL_CAPACITY: usize = 10 * 1024;
 
 pub struct Buffer {
     buffer: Vec<u8>,
@@ -83,10 +83,14 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new() -> Buffer {
+        Buffer::with_initial_capacity(DEFAULT_INITIAL_CAPACITY)
+    }
+
+    pub fn with_initial_capacity(capacity: usize) -> Buffer {
         Buffer {
-            buffer: vec![0; INITIAL_CAPACITY],
+            buffer: vec![0; capacity],
             left_string_range: 0..0,
-            right_string_range: (INITIAL_CAPACITY - 1)..(INITIAL_CAPACITY - 1),
+            right_string_range: capacity..capacity,
         }
     }
 }
@@ -115,31 +119,50 @@ impl Buffer {
 
     pub fn move_cursor(&mut self, offset: isize) {
         if offset < 0 {
-            self.move_cursor_left(-offset);
+            self.move_cursor_left(-offset as usize);
         } else if offset > 0 {
-            self.move_cursor_right(offset);
+            self.move_cursor_right(offset as usize);
         }
     }
 
-    fn move_cursor_right(&mut self, offset: isize) {}
+    fn move_cursor_right(&mut self, number_of_characters: usize) {
+        let (_, right) = self.get();
+        let mut graphemes = right.grapheme_indices(true);
+        let num_original_right_bytes = right.as_bytes().len();
 
-    fn move_cursor_left(&mut self, number_of_characters: isize) {
-        debug_assert!(number_of_characters > 0);
+        // We want to move the cursor to *after* the number_of_characters'th character in the right string
+        let maybe_target_cursor_character_index = graphemes.nth(number_of_characters);
 
+        let target_cursor_buffer_index = match maybe_target_cursor_character_index {
+            Some((index, _)) => self.right_string_range.start + index,
+            None => self.right_string_range.end,
+        };
+        let source_copy_range = self.right_string_range.start..target_cursor_buffer_index;
+        let destination_copy_start_index = self.left_string_range.end;
+        self.buffer
+            .copy_within(source_copy_range.clone(), destination_copy_start_index);
+
+        let num_copied_bytes = source_copy_range.len();
+        let num_remaining_right_bytes = num_original_right_bytes - num_copied_bytes;
+        self.left_string_range.end = destination_copy_start_index + num_copied_bytes;
+        self.right_string_range.start = self.right_string_range.end - num_remaining_right_bytes;
+    }
+
+    fn move_cursor_left(&mut self, number_of_characters: usize) {
         let (left, _) = self.get();
         let mut graphemes = left.grapheme_indices(true);
-        let maybe_target_character_index = graphemes.nth_back((number_of_characters - 1) as usize);
+        let maybe_target_cursor_character_index = graphemes.nth_back(number_of_characters - 1);
 
-        let target_character_index = match maybe_target_character_index {
+        let target_cursor_buffer_index = match maybe_target_cursor_character_index {
             Some((index, _)) => index,
             None => 0,
         };
-        let source_copy_range = target_character_index..self.left_string_range.end;
+        let source_copy_range = target_cursor_buffer_index..self.left_string_range.end;
         let destination_copy_start_index = self.right_string_range.start - source_copy_range.len();
         self.buffer
             .copy_within(source_copy_range, destination_copy_start_index);
 
-        self.left_string_range.end = target_character_index;
+        self.left_string_range.end = target_cursor_buffer_index;
         self.right_string_range.start = destination_copy_start_index;
     }
 }
@@ -148,22 +171,24 @@ impl Buffer {
 mod tests {
     use crate::buffer::*;
 
+    const TEST_CAPACITY: usize = 64;
+
     #[test]
     fn initialize() {
-        let buffer = Buffer::new();
+        let buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         assert_eq!(buffer.get(), ("", ""));
     }
 
     #[test]
     fn simple_insert() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         buffer.insert_at_cursor("John is the best");
         assert_eq!(buffer.get(), ("John is the best", ""));
     }
 
     #[test]
     fn move_cursor_left_1() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         buffer.insert_at_cursor("Let's move the cursor 😎");
         buffer.move_cursor(-1);
         assert_eq!(buffer.get(), ("Let's move the cursor ", "😎"));
@@ -171,7 +196,7 @@ mod tests {
 
     #[test]
     fn move_cursor_left_2() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         buffer.insert_at_cursor("Test out this weird character: a̐");
         buffer.move_cursor(-3);
         assert_eq!(buffer.get(), ("Test out this weird character", ": a̐"));
@@ -179,33 +204,62 @@ mod tests {
 
     #[test]
     fn move_cursor_left_saturating() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         buffer.insert_at_cursor("Not enough room");
         buffer.move_cursor(-1000);
         assert_eq!(buffer.get(), ("", "Not enough room"));
     }
 
     #[test]
+    fn move_cursor_left_multiple_times() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("OneTwoThree");
+        buffer.move_cursor(-5);
+        buffer.move_cursor(-3);
+        assert_eq!(buffer.get(), ("One", "TwoThree"));
+    }
+
+    #[test]
     fn move_cursor_nowhere() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
         buffer.insert_at_cursor("Don't even move the dang cursor");
         buffer.move_cursor(0);
         assert_eq!(buffer.get(), ("Don't even move the dang cursor", ""));
     }
 
-    // #[test]
-    // fn move_cursor_right_1() {
-    //     let mut buffer = Buffer::new();
-    //     buffer.insert_at_cursor("Let's move the cursor 😎");
-    //     buffer.move_cursor(-1);
-    //     assert_eq!(buffer.get(), ("Let's move the cursor ", "😎"));
-    // }
+    #[test]
+    fn move_cursor_right_1() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("Let's move the cursor 😎");
+        buffer.move_cursor(-4);
+        buffer.move_cursor(2);
+        assert_eq!(buffer.get(), ("Let's move the cursor", " 😎"));
+    }
 
-    // #[test]
-    // fn move_cursor_right_2() {
-    //     let mut buffer = Buffer::new();
-    //     buffer.insert_at_cursor("Test out this weird character: a̐");
-    //     buffer.move_cursor(-3);
-    //     assert_eq!(buffer.get(), ("Test out this weird character", ": a̐"));
-    // }
+    #[test]
+    fn move_cursor_right_2() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("Test out this weird character: a̐");
+        buffer.move_cursor(-10);
+        buffer.move_cursor(2);
+        assert_eq!(buffer.get(), ("Test out this weird char", "acter: a̐"));
+    }
+
+    #[test]
+    fn move_cursor_right_saturating() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("Cursor is already at the end");
+        buffer.move_cursor(1);
+        assert_eq!(buffer.get(), ("Cursor is already at the end", ""));
+    }
+
+    #[test]
+    fn move_cursor_right_multiple_times() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("OneTwoThree");
+        buffer.move_cursor(-1000);
+        buffer.move_cursor(3);
+        buffer.move_cursor(3);
+        assert_eq!(buffer.get(), ("OneTwo", "Three"));
+    }
 }

@@ -193,7 +193,10 @@ impl Buffer {
             (self.buffer.len() + (target_gap_size - self.gap_size())).next_power_of_two();
         self.buffer.resize(new_length, 0);
         let num_right_bytes = self.right_string_range.len();
+        let original_right_string_range = self.right_string_range.clone();
         self.right_string_range = (new_length - num_right_bytes)..new_length;
+        self.buffer
+            .copy_within(original_right_string_range, self.right_string_range.start);
     }
 }
 
@@ -294,11 +297,20 @@ mod tests {
     }
 
     #[test]
-    fn grow() {
+    fn grow_1() {
         let mut buffer = Buffer::with_initial_capacity(8);
         buffer.insert_at_cursor("12345");
         buffer.insert_at_cursor("12345");
         assert_eq!(buffer.get(), ("1234512345", ""));
+    }
+
+    #[test]
+    fn grow_2() {
+        let mut buffer = Buffer::with_initial_capacity(8);
+        buffer.insert_at_cursor("12345");
+        buffer.move_cursor_left(3);
+        buffer.insert_at_cursor("12345");
+        assert_eq!(buffer.get(), ("1212345", "345"));
     }
 
     #[test]

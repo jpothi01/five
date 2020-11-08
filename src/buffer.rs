@@ -113,7 +113,8 @@ impl Buffer {
             panic!("Not implemented");
         }
 
-        self.buffer[self.left_string_range.end..num_bytes].copy_from_slice(as_bytes);
+        self.buffer[self.left_string_range.end..self.left_string_range.end + num_bytes]
+            .copy_from_slice(as_bytes);
         self.left_string_range.end += num_bytes;
     }
 
@@ -125,10 +126,9 @@ impl Buffer {
         }
     }
 
-    fn move_cursor_right(&mut self, number_of_characters: usize) {
+    pub fn move_cursor_right(&mut self, number_of_characters: usize) {
         let (_, right) = self.get();
         let mut graphemes = right.grapheme_indices(true);
-        let num_original_right_bytes = right.as_bytes().len();
 
         // We want to move the cursor to *after* the number_of_characters'th character in the right string
         let maybe_target_cursor_character_index = graphemes.nth(number_of_characters);
@@ -137,18 +137,11 @@ impl Buffer {
             Some((index, _)) => self.right_string_range.start + index,
             None => self.right_string_range.end,
         };
-        let source_copy_range = self.right_string_range.start..target_cursor_buffer_index;
-        let destination_copy_start_index = self.left_string_range.end;
-        self.buffer
-            .copy_within(source_copy_range.clone(), destination_copy_start_index);
 
-        let num_copied_bytes = source_copy_range.len();
-        let num_remaining_right_bytes = num_original_right_bytes - num_copied_bytes;
-        self.left_string_range.end = destination_copy_start_index + num_copied_bytes;
-        self.right_string_range.start = self.right_string_range.end - num_remaining_right_bytes;
+        self.move_cursor_right_to(target_cursor_buffer_index)
     }
 
-    fn move_cursor_left(&mut self, number_of_characters: usize) {
+    pub fn move_cursor_left(&mut self, number_of_characters: usize) {
         let (left, _) = self.get();
         let mut graphemes = left.grapheme_indices(true);
         let maybe_target_cursor_character_index = graphemes.nth_back(number_of_characters - 1);
@@ -157,6 +150,31 @@ impl Buffer {
             Some((index, _)) => index,
             None => 0,
         };
+        self.move_cursor_left_to(target_cursor_buffer_index);
+    }
+
+    pub fn move_cursor_to_beginning(&mut self) {
+        self.move_cursor_left_to(0);
+    }
+
+    pub fn move_cursor_to_end(&mut self) {
+        self.move_cursor_right_to(self.right_string_range.end - 1);
+    }
+
+    fn move_cursor_right_to(&mut self, target_cursor_buffer_index: usize) {
+        let source_copy_range = self.right_string_range.start..target_cursor_buffer_index;
+        let destination_copy_start_index = self.left_string_range.end;
+        self.buffer
+            .copy_within(source_copy_range.clone(), destination_copy_start_index);
+
+        let num_copied_bytes = source_copy_range.len();
+        let num_original_right_bytes = self.get().1.as_bytes().len();
+        let num_remaining_right_bytes = num_original_right_bytes - num_copied_bytes;
+        self.left_string_range.end = destination_copy_start_index + num_copied_bytes;
+        self.right_string_range.start = self.right_string_range.end - num_remaining_right_bytes;
+    }
+
+    fn move_cursor_left_to(&mut self, target_cursor_buffer_index: usize) {
         let source_copy_range = target_cursor_buffer_index..self.left_string_range.end;
         let destination_copy_start_index = self.right_string_range.start - source_copy_range.len();
         self.buffer
@@ -261,5 +279,24 @@ mod tests {
         buffer.move_cursor(3);
         buffer.move_cursor(3);
         assert_eq!(buffer.get(), ("OneTwo", "Three"));
+    }
+
+    #[test]
+    fn complex_1() {
+        let mut buffer = Buffer::with_initial_capacity(1000);
+        buffer.insert_at_cursor("This ");
+        buffer.insert_at_cursor("is a test");
+        buffer.insert_at_cursor("\nThat tests öut a møre complex\t\tscenario");
+        buffer.move_cursor_to_beginning();
+        buffer.insert_at_cursor("Put this at the front");
+        buffer.move_cursor_right(10);
+        buffer.insert_at_cursor("Last thing");
+        assert_eq!(
+            buffer.get(),
+            (
+                "Put this at the frontThis is a Last thing",
+                "test\nThat tests öut a møre complex\t\tscenario"
+            )
+        );
     }
 }

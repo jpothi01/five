@@ -105,12 +105,15 @@ impl Buffer {
         }
     }
 
+    fn gap_size(&self) -> usize {
+        self.right_string_range.start - self.left_string_range.end
+    }
+
     pub fn insert_at_cursor(&mut self, characters: &str) {
         let as_bytes = characters.as_bytes();
         let num_bytes = as_bytes.len();
-        let gap_size = self.right_string_range.start - self.left_string_range.end;
-        if num_bytes > gap_size {
-            panic!("Not implemented");
+        if num_bytes > self.gap_size() {
+            self.grow(num_bytes);
         }
 
         self.buffer[self.left_string_range.end..self.left_string_range.end + num_bytes]
@@ -182,6 +185,15 @@ impl Buffer {
 
         self.left_string_range.end = target_cursor_buffer_index;
         self.right_string_range.start = destination_copy_start_index;
+    }
+
+    fn grow(&mut self, target_gap_size: usize) {
+        debug_assert!(target_gap_size > self.gap_size());
+        let new_length =
+            (self.buffer.len() + (target_gap_size - self.gap_size())).next_power_of_two();
+        self.buffer.resize(new_length, 0);
+        let num_right_bytes = self.right_string_range.len();
+        self.right_string_range = (new_length - num_right_bytes)..new_length;
     }
 }
 
@@ -279,6 +291,14 @@ mod tests {
         buffer.move_cursor(3);
         buffer.move_cursor(3);
         assert_eq!(buffer.get(), ("OneTwo", "Three"));
+    }
+
+    #[test]
+    fn grow() {
+        let mut buffer = Buffer::with_initial_capacity(8);
+        buffer.insert_at_cursor("12345");
+        buffer.insert_at_cursor("12345");
+        assert_eq!(buffer.get(), ("1234512345", ""));
     }
 
     #[test]

@@ -121,6 +121,19 @@ impl Buffer {
         self.left_string_range.end += num_bytes;
     }
 
+    pub fn delete_at_cursor(&mut self, number_of_characters: usize) {
+        let (left, _) = self.get();
+        let mut graphemes = left.grapheme_indices(true);
+        let maybe_target_cursor_character_index = graphemes.nth_back(number_of_characters - 1);
+
+        let target_cursor_buffer_index = match maybe_target_cursor_character_index {
+            Some((index, _)) => index,
+            None => 0,
+        };
+
+        self.left_string_range.end = target_cursor_buffer_index;
+    }
+
     pub fn move_cursor(&mut self, offset: isize) {
         if offset < 0 {
             self.move_cursor_left(-offset as usize);
@@ -171,7 +184,7 @@ impl Buffer {
             .copy_within(source_copy_range.clone(), destination_copy_start_index);
 
         let num_copied_bytes = source_copy_range.len();
-        let num_original_right_bytes = self.get().1.as_bytes().len();
+        let num_original_right_bytes = self.right_string_range.len();
         let num_remaining_right_bytes = num_original_right_bytes - num_copied_bytes;
         self.left_string_range.end = destination_copy_start_index + num_copied_bytes;
         self.right_string_range.start = self.right_string_range.end - num_remaining_right_bytes;
@@ -311,6 +324,23 @@ mod tests {
         buffer.move_cursor_left(3);
         buffer.insert_at_cursor("12345");
         assert_eq!(buffer.get(), ("1212345", "345"));
+    }
+
+    #[test]
+    fn delete_1() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("Delete me, please");
+        buffer.delete_at_cursor(4);
+        assert_eq!(buffer.get(), ("Delete me, pl", ""));
+    }
+
+    #[test]
+    fn delete_2() {
+        let mut buffer = Buffer::with_initial_capacity(TEST_CAPACITY);
+        buffer.insert_at_cursor("Delete me, please");
+        buffer.move_cursor_left(8);
+        buffer.delete_at_cursor(3);
+        assert_eq!(buffer.get(), ("Delete", ", please"));
     }
 
     #[test]

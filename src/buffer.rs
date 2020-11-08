@@ -287,6 +287,8 @@ mod tests {
         buffer.insert_at_cursor("This ");
         buffer.insert_at_cursor("is a test");
         buffer.insert_at_cursor("\nThat tests öut a møre complex\t\tscenario");
+        buffer.move_cursor_left(9);
+        buffer.insert_at_cursor("AHA");
         buffer.move_cursor_to_beginning();
         buffer.insert_at_cursor("Put this at the front");
         buffer.move_cursor_right(10);
@@ -295,7 +297,7 @@ mod tests {
             buffer.get(),
             (
                 "Put this at the frontThis is a Last thing",
-                "test\nThat tests öut a møre complex\t\tscenario"
+                "test\nThat tests öut a møre complex\tAHA\tscenario"
             )
         );
     }

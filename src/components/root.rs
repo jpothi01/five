@@ -16,6 +16,7 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::buffer::Buffer;
 use crate::components::component::Component;
 use crate::components::divider::DividerComponent;
 use crate::components::file_pane::FilePaneComponent;
@@ -99,6 +100,27 @@ impl<'a> RootComponent<'a> {
         self.show_file_preview(index_entry);
         self.focused_component = FocusedComponent::FileView;
         self.file_view.set_has_focus(true);
+    }
+
+    fn save_file(&self, buffer: &Buffer, file_path: String) {
+        let (left, right) = buffer.get();
+        let maybe_handle = std::fs::OpenOptions::new().write(true).open(&file_path);
+        if let Err(err) = &maybe_handle {
+            println!("Error saving: {}", err);
+        }
+
+        let mut handle = maybe_handle.unwrap();
+        if let Err(err) = handle.write(left.as_bytes()) {
+            // TODO: handle saving errors
+            println!("Error saving: {}", err);
+            return;
+        }
+
+        if let Err(err) = handle.write(right.as_bytes()) {
+            // TODO: handle saving errors
+            println!("Error saving: {}", err);
+            return;
+        }
     }
 }
 
@@ -203,6 +225,10 @@ impl<'a> Component for RootComponent<'a> {
                 Event::FileViewLostFocus => {
                     self.file_view.set_has_focus(false);
                     self.focused_component = FocusedComponent::FilePane;
+                }
+                Event::FileSaved => {
+                    let (buffer, file_path) = self.file_view.get_buffer();
+                    self.save_file(buffer, file_path);
                 }
             }
         }

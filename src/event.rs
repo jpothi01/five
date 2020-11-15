@@ -23,4 +23,5 @@ pub enum Event {
     FileItemSelected(FileTreeNode),
     FileItemOpened(FileIndexEntry),
     FileViewLostFocus,
+    FileSaved,
 }

@@ -95,6 +95,10 @@ impl FileViewComponent {
         self.needs_paint.set(true);
     }
 
+    pub fn get_buffer(&self) -> (&Buffer, String) {
+        return (&self.buffer, self.file_path.clone());
+    }
+
     fn scroll_down(&mut self) {
         if self.start_line < self.num_content_lines {
             self.start_line = self.start_line + 1;
@@ -284,6 +288,14 @@ impl Component for FileViewComponent {
                 termion::event::Key::Esc => {
                     self.events.push(Event::FileViewLostFocus);
                     true
+                }
+                termion::event::Key::Ctrl(c) => {
+                    if c == 's' {
+                        self.events.push(Event::FileSaved);
+                        true
+                    } else {
+                        false
+                    }
                 }
                 _ => false,
             },

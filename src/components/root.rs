@@ -200,6 +200,10 @@ impl<'a> Component for RootComponent<'a> {
                     }
                 },
                 Event::FileItemOpened(index_entry) => self.open_file(index_entry),
+                Event::FileViewLostFocus => {
+                    self.file_view.set_has_focus(false);
+                    self.focused_component = FocusedComponent::FilePane;
+                }
             }
         }
 

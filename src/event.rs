@@ -22,4 +22,5 @@ use crate::indexer::index::{FileIndexEntry, FileTreeNode};
 pub enum Event {
     FileItemSelected(FileTreeNode),
     FileItemOpened(FileIndexEntry),
+    FileViewLostFocus,
 }

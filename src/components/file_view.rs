@@ -35,6 +35,7 @@ pub struct FileViewComponent {
     has_focus: bool,
     needs_paint: Cell<bool>,
     buffer: Buffer,
+    events: Vec<Event>,
 }
 
 pub enum FileViewContent {
@@ -53,6 +54,7 @@ impl FileViewComponent {
             has_focus: false,
             needs_paint: Cell::new(true),
             buffer: Buffer::new(),
+            events: vec![],
         }
     }
 
@@ -234,6 +236,7 @@ impl Component for FileViewComponent {
     }
 
     fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+        self.events.clear();
         match event {
             termion::event::Event::Mouse(mouse_event) => match mouse_event {
                 termion::event::MouseEvent::Press(button, _, _) => match button {
@@ -278,6 +281,10 @@ impl Component for FileViewComponent {
                     self.needs_paint.set(true);
                     true
                 }
+                termion::event::Key::Esc => {
+                    self.events.push(Event::FileViewLostFocus);
+                    true
+                }
                 _ => false,
             },
             _ => false,
@@ -285,7 +292,7 @@ impl Component for FileViewComponent {
     }
 
     fn get_events(&self) -> Vec<Event> {
-        Vec::new()
+        self.events.clone()
     }
 
     fn dispatch_events(&mut self, _: &[Event]) {}

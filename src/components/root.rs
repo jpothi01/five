@@ -53,15 +53,19 @@ impl<'a> RootComponent<'a> {
         }
     }
 
-    fn start_quick_open(&mut self) {
+    pub fn update_index(&mut self) {
         match self.indexer.get_index() {
             None => println!("Could not get index"),
             Some(index) => {
-                self.file_pane.start_quick_open(index.clone());
                 // TODO: somehow make this event based
                 self.file_pane.update_index(index)
             }
         }
+    }
+
+    fn start_quick_open(&mut self) {
+        self.update_index();
+        self.file_pane.start_quick_open();
     }
 
     fn show_file_preview(&mut self, index_entry: &FileIndexEntry) {

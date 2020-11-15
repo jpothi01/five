@@ -77,6 +77,10 @@ fn run(config: Config) {
     };
     let mut root_component = components::root::RootComponent::new(&*indexer);
 
+    // TODO: actually make this asynchronous
+    while indexer.get_index().is_none() {}
+    root_component.update_index();
+
     root_component.paint(&mut stdout, root_rect).unwrap();
 
     for c in stdin.events() {

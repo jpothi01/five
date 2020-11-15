@@ -448,12 +448,12 @@ impl FilePaneComponent {
         }
     }
 
-    pub fn start_quick_open(&mut self, index: Index) {
-        self.quick_open.index = Some(index);
+    pub fn start_quick_open(&mut self) {
         self.mode = FilePaneMode::QuickOpen;
     }
 
     pub fn update_index(&mut self, index: Index) {
+        self.quick_open.index = Some(index.clone());
         self.directory_tree.update_index(index);
     }
 }

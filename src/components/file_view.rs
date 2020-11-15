@@ -176,6 +176,7 @@ impl Component for FileViewComponent {
                 termion::color::Bg(termion::color::White),
                 termion::color::Bg(termion::color::Reset)
             )?;
+            stream.flush().unwrap();
         }
 
         let after_cursor_lines = after_cursor.lines();
@@ -208,16 +209,18 @@ impl Component for FileViewComponent {
                     rect.top + 1 + row_offset(current_line_index, num_lines_to_skip)
                 )
             )?;
+            stream.flush().unwrap();
 
             let first_char_to_paint = line.grapheme_indices(true).nth(line_offset);
             match first_char_to_paint {
                 Some((i, _)) => {
-                    paint_truncated_text(stream, &line[i..], rect.width)?;
+                    paint_truncated_text(stream, &line[i..], rect.width - column_offset)?;
                 }
                 None => {
-                    paint_truncated_text(stream, "", rect.width)?;
+                    paint_truncated_text(stream, "", rect.width - column_offset)?;
                 }
             }
+            stream.flush().unwrap();
 
             num_painted_lines += 1;
             first = false;

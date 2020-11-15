@@ -102,8 +102,8 @@ fn run(config: Config) {
             _ => {}
         }
 
-        root_component.dispatch_event(event);
-        let events = root_component.get_events();
+        let result = root_component.dispatch_event(event);
+        let events = result.events;
         root_component.dispatch_events(&events);
         root_component.paint(&mut stdout, root_rect).unwrap();
     }

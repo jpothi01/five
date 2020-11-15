@@ -17,7 +17,7 @@
 */
 
 use crate::buffer::Buffer;
-use crate::components::component::Component;
+use crate::components::component::{Component, DispatchEventResult};
 use crate::components::divider::DividerComponent;
 use crate::components::file_pane::FilePaneComponent;
 use crate::components::file_view::{FileViewComponent, FileViewContent};
@@ -165,23 +165,27 @@ impl<'a> Component for RootComponent<'a> {
         stream.flush()
     }
 
-    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> DispatchEventResult {
         // Swap dispatch priority depending on focus
         match self.focused_component {
             FocusedComponent::FilePane => {
-                if self.file_pane.dispatch_event(event.clone()) {
-                    return true;
+                let result = self.file_pane.dispatch_event(event.clone());
+                if result.handled {
+                    return result;
                 }
-                if self.file_view.dispatch_event(event.clone()) {
-                    return true;
+                let result = self.file_view.dispatch_event(event.clone());
+                if result.handled {
+                    return result;
                 }
             }
             FocusedComponent::FileView => {
-                if self.file_view.dispatch_event(event.clone()) {
-                    return true;
+                let result = self.file_view.dispatch_event(event.clone());
+                if result.handled {
+                    return result;
                 }
-                if self.file_pane.dispatch_event(event.clone()) {
-                    return true;
+                let result = self.file_pane.dispatch_event(event.clone());
+                if result.handled {
+                    return result;
                 }
             }
         }
@@ -191,27 +195,19 @@ impl<'a> Component for RootComponent<'a> {
                 Key::Ctrl(c) => {
                     if c == 'p' {
                         self.start_quick_open();
-                        true
+                        DispatchEventResult {
+                            handled: true,
+                            events: vec![],
+                        }
                     } else {
-                        false
+                        DispatchEventResult::empty()
                     }
                 }
-                _ => false,
+                _ => DispatchEventResult::empty(),
             },
 
-            _ => false,
+            _ => DispatchEventResult::empty(),
         }
-    }
-
-    fn get_events(&self) -> Vec<Event> {
-        let mut result: Vec<Event> = Vec::new();
-        let mut temp = self.file_pane.get_events();
-        result.append(&mut temp);
-        temp = self.file_view.get_events();
-        result.append(&mut temp);
-        temp = self.divider.get_events();
-        result.append(&mut temp);
-        result
     }
 
     fn dispatch_events(&mut self, events: &[Event]) {

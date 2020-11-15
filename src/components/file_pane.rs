@@ -16,7 +16,7 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::components::component::Component;
+use crate::components::component::{Component, DispatchEventResult};
 use crate::event::Event;
 use crate::indexer::index::{FileIndexEntry, FileTreeFolder, FileTreeNode, Index};
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
@@ -32,7 +32,6 @@ struct QuickOpenComponent {
     index: Option<Index>,
     results: Vec<QuickOpenResult>,
     selected_item_index: Option<usize>,
-    events: Vec<Event>,
 }
 
 impl QuickOpenComponent {
@@ -42,7 +41,6 @@ impl QuickOpenComponent {
             index: None,
             results: vec![],
             selected_item_index: None,
-            events: vec![],
         }
     }
     fn update_quick_open_results(&mut self) {
@@ -122,8 +120,8 @@ impl Component for QuickOpenComponent {
         Ok(())
     }
 
-    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
-        self.events.clear();
+    fn dispatch_event(&mut self, event: termion::event::Event) -> DispatchEventResult {
+        let mut events = Vec::<Event>::new();
         let handled = match event {
             termion::event::Event::Key(key) => match key {
                 Key::Char(c) => {
@@ -168,17 +166,17 @@ impl Component for QuickOpenComponent {
         };
         if handled {
             if let Some(selected_index) = self.selected_item_index {
-                self.events.push(Event::FileItemSelected(FileTreeNode::File(
+                events.push(Event::FileItemSelected(FileTreeNode::File(
                     self.results[selected_index].clone(),
                 )));
             }
         }
-        handled
+        DispatchEventResult {
+            handled: handled,
+            events: events,
+        }
     }
 
-    fn get_events(&self) -> Vec<Event> {
-        return self.events.clone();
-    }
     fn dispatch_events(&mut self, _: &[Event]) {}
 }
 
@@ -198,7 +196,6 @@ struct DirectoryTreeComponent {
     selected_item_index: Option<usize>,
     needs_paint: Cell<bool>,
     file_tree_cache: Option<FileTreeCache>,
-    events: Vec<Event>,
 }
 
 impl DirectoryTreeComponent {
@@ -231,7 +228,7 @@ impl DirectoryTreeComponent {
         }
     }
 
-    fn open_selected_item(&mut self) {
+    fn open_selected_item(&mut self) -> Option<Event> {
         let next_current_node = match self.selected_item_index {
             None => None,
             Some(selected_index) => match self.file_tree_node_at_index(selected_index) {
@@ -248,19 +245,16 @@ impl DirectoryTreeComponent {
         };
 
         match next_current_node {
-            None => {}
+            None => None,
             Some(next_current_node) => {
                 if let FileTreeNode::File(file_index_entry) = next_current_node {
-                    self.open_file(file_index_entry);
+                    Some(Event::FileItemOpened(file_index_entry))
                 } else {
                     self.push_node_stack(next_current_node);
+                    None
                 }
             }
         }
-    }
-
-    fn open_file(&mut self, file_index_entry: FileIndexEntry) {
-        self.events.push(Event::FileItemOpened(file_index_entry))
     }
 
     fn push_node_stack(&mut self, next_current_node: FileTreeNode) {
@@ -356,8 +350,8 @@ impl Component for DirectoryTreeComponent {
         }
     }
 
-    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
-        self.events.clear();
+    fn dispatch_event(&mut self, event: termion::event::Event) -> DispatchEventResult {
+        let mut events = Vec::<Event>::new();
         let handled = match event {
             termion::event::Event::Key(key) => match key {
                 Key::Down => {
@@ -389,7 +383,9 @@ impl Component for DirectoryTreeComponent {
                 Key::Backspace => self.pop_node_stack(),
                 Key::Char(c) => match c {
                     '\n' => {
-                        self.open_selected_item();
+                        if let Some(event) = self.open_selected_item() {
+                            events.push(event)
+                        }
                         true
                     }
                     _ => false,
@@ -411,15 +407,15 @@ impl Component for DirectoryTreeComponent {
                 None
             };
             if let Some(event) = event {
-                self.events.push(event)
+                events.push(event)
             }
         };
-        handled
+        DispatchEventResult {
+            handled: handled,
+            events: events,
+        }
     }
 
-    fn get_events(&self) -> Vec<Event> {
-        self.events.clone()
-    }
     fn dispatch_events(&mut self, _: &[Event]) {}
 }
 
@@ -441,7 +437,6 @@ impl FilePaneComponent {
                 selected_item_index: None,
                 needs_paint: Cell::new(true),
                 file_tree_cache: None,
-                events: Vec::new(),
             },
             quick_open: QuickOpenComponent::new(),
             mode: FilePaneMode::DirectoryTree,
@@ -468,13 +463,16 @@ impl Component for FilePaneComponent {
             FilePaneMode::QuickOpen => self.quick_open.paint(stream, rect),
         }
     }
-    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> DispatchEventResult {
         match event {
             termion::event::Event::Key(key) => match key {
                 Key::Esc => match self.mode {
                     FilePaneMode::QuickOpen => {
                         self.mode = FilePaneMode::DirectoryTree;
-                        return true;
+                        return DispatchEventResult {
+                            handled: true,
+                            events: vec![],
+                        };
                     }
                     _ => {}
                 },
@@ -489,12 +487,6 @@ impl Component for FilePaneComponent {
         }
     }
 
-    fn get_events(&self) -> Vec<Event> {
-        match self.mode {
-            FilePaneMode::DirectoryTree => self.directory_tree.get_events(),
-            FilePaneMode::QuickOpen => self.quick_open.get_events(),
-        }
-    }
     fn dispatch_events(&mut self, events: &[Event]) {
         match self.mode {
             FilePaneMode::DirectoryTree => self.directory_tree.dispatch_events(events),

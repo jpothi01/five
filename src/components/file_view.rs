@@ -16,7 +16,7 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::component::Component;
+use super::component::{Component, DispatchEventResult};
 use crate::buffer::Buffer;
 use crate::event::Event;
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
@@ -35,7 +35,6 @@ pub struct FileViewComponent {
     has_focus: bool,
     needs_paint: Cell<bool>,
     buffer: Buffer,
-    events: Vec<Event>,
 }
 
 pub enum FileViewContent {
@@ -54,7 +53,6 @@ impl FileViewComponent {
             has_focus: false,
             needs_paint: Cell::new(true),
             buffer: Buffer::new(),
-            events: vec![],
         }
     }
 
@@ -242,9 +240,9 @@ impl Component for FileViewComponent {
         Ok(())
     }
 
-    fn dispatch_event(&mut self, event: termion::event::Event) -> bool {
-        self.events.clear();
-        match event {
+    fn dispatch_event(&mut self, event: termion::event::Event) -> DispatchEventResult {
+        let mut events = Vec::<Event>::new();
+        let handled = match event {
             termion::event::Event::Mouse(mouse_event) => match mouse_event {
                 termion::event::MouseEvent::Press(button, _, _) => match button {
                     termion::event::MouseButton::WheelDown => {
@@ -289,12 +287,12 @@ impl Component for FileViewComponent {
                     true
                 }
                 termion::event::Key::Esc => {
-                    self.events.push(Event::FileViewLostFocus);
+                    events.push(Event::FileViewLostFocus);
                     true
                 }
                 termion::event::Key::Ctrl(c) => {
                     if c == 's' {
-                        self.events.push(Event::FileSaved);
+                        events.push(Event::FileSaved);
                         true
                     } else {
                         false
@@ -303,11 +301,11 @@ impl Component for FileViewComponent {
                 _ => false,
             },
             _ => false,
+        };
+        DispatchEventResult {
+            handled: handled,
+            events: events,
         }
-    }
-
-    fn get_events(&self) -> Vec<Event> {
-        self.events.clone()
     }
 
     fn dispatch_events(&mut self, _: &[Event]) {}

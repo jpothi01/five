@@ -16,7 +16,7 @@
     along with Five.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::component::Component;
+use super::component::{Component, DispatchEventResult};
 use crate::event::Event;
 use crate::terminal::Rect;
 use std::cell::Cell;
@@ -52,11 +52,9 @@ impl Component for DividerComponent {
         Ok(())
     }
 
-    fn dispatch_event(&mut self, _: termion::event::Event) -> bool {
-        false
+    fn dispatch_event(&mut self, _: termion::event::Event) -> DispatchEventResult {
+        DispatchEventResult::empty()
     }
-    fn get_events(&self) -> Vec<Event> {
-        Vec::new()
-    }
+
     fn dispatch_events(&mut self, _: &[Event]) {}
 }

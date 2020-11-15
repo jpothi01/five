@@ -202,20 +202,23 @@ impl Component for FileViewComponent {
                 (0u16, 0usize)
             };
 
+            write!(
+                stream,
+                "{}",
+                termion::cursor::Goto(
+                    rect.left + column_offset,
+                    rect.top + 1 + row_offset(current_line_index, num_lines_to_skip)
+                )
+            )?;
+
             let first_char_to_paint = line.grapheme_indices(true).nth(line_offset);
             match first_char_to_paint {
                 Some((i, _)) => {
-                    write!(
-                        stream,
-                        "{}",
-                        termion::cursor::Goto(
-                            rect.left + column_offset,
-                            rect.top + 1 + row_offset(current_line_index, num_lines_to_skip)
-                        )
-                    )?;
                     paint_truncated_text(stream, &line[i..], rect.width)?;
                 }
-                None => {}
+                None => {
+                    paint_truncated_text(stream, "", rect.width)?;
+                }
             }
 
             num_painted_lines += 1;

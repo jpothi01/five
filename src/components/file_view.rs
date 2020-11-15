@@ -17,6 +17,7 @@
 */
 
 use super::component::Component;
+use crate::buffer::Buffer;
 use crate::event::Event;
 use crate::painting_utils::{paint_empty_lines, paint_truncated_text};
 use crate::terminal::Rect;
@@ -24,15 +25,16 @@ use std::cell::Cell;
 use std::convert::TryFrom;
 use std::io::Write;
 use termion;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct FileViewComponent {
     content: String,
-    num_content_lines: usize,
+    num_content_lines: i64,
     file_path: String,
-    start_line: usize,
+    start_line: i64,
     has_focus: bool,
-    file_cursor_position: (usize, usize),
     needs_paint: Cell<bool>,
+    buffer: Buffer,
 }
 
 pub enum FileViewContent {
@@ -47,18 +49,19 @@ impl FileViewComponent {
             content: String::new(),
             num_content_lines: 0,
             file_path: String::new(),
-            start_line: 0usize,
+            start_line: 0,
             has_focus: false,
-            file_cursor_position: (0, 0),
             needs_paint: Cell::new(true),
+            buffer: Buffer::new(),
         }
     }
 
     pub fn set_content(&mut self, content: FileViewContent) {
+        self.buffer.delete_all();
         match content {
             FileViewContent::TextFile(path, content) => {
                 self.content = content;
-                self.num_content_lines = self.content.lines().count();
+                self.num_content_lines = i64::try_from(self.content.lines().count()).unwrap();
                 self.file_path = path;
             }
             FileViewContent::BinaryFile(path) => {
@@ -67,7 +70,7 @@ impl FileViewComponent {
                 self.file_path = path;
             }
             FileViewContent::Folder(path, mut children) => {
-                self.num_content_lines = children.len();
+                self.num_content_lines = i64::try_from(children.len()).unwrap();
                 self.content = children
                     .iter_mut()
                     .map(|child| String::from("./") + child)
@@ -77,6 +80,10 @@ impl FileViewComponent {
             }
         };
 
+        // TODO: this is pretty inefficient. There should be an optimized method to initialize a buffer with
+        // content and put the cursor at the beginning instead of having to move cursor after initial insertion.
+        self.buffer.insert_at_cursor(&self.content);
+        self.buffer.move_cursor_to_beginning();
         self.start_line = 0;
         self.needs_paint.set(true);
     }
@@ -111,44 +118,114 @@ impl Component for FileViewComponent {
         paint_truncated_text(stream, &self.file_path, rect.width)?;
 
         write!(stream, "{}", termion::color::Fg(termion::color::White))?;
-        let lines = self.content.lines().skip(self.start_line);
 
-        let mut row = rect.top + 1;
-        for line in lines {
-            write!(stream, "{}", termion::cursor::Goto(rect.left, row))?;
-            paint_truncated_text(stream, line, rect.width)?;
+        let total_num_lines = rect.height as usize - 1;
+        let (before_cursor, after_cursor) = self.buffer.get();
 
-            if row >= rect.height {
-                break;
+        // This code is ugly because I'm trying to iterate over our lines iterators only once.
+        let num_lines_to_skip = self.start_line;
+        let mut current_line_index = 0i64;
+        let mut num_painted_lines = 0usize;
+        let mut last_before_cursor_line_length = 0usize;
+
+        let row_offset = |current_line_index: i64, num_lines_to_skip: i64| {
+            u16::try_from(current_line_index - num_lines_to_skip).unwrap()
+        };
+
+        let before_cursor_lines = before_cursor.lines();
+        let mut first = true;
+        for line in before_cursor_lines {
+            if !first {
+                current_line_index += 1;
             }
 
-            row += 1;
+            first = false;
+            if current_line_index < num_lines_to_skip {
+                continue;
+            }
+
+            let row_offset = row_offset(current_line_index, num_lines_to_skip);
+            write!(
+                stream,
+                "{}",
+                termion::cursor::Goto(rect.left, rect.top + 1 + row_offset)
+            )?;
+            paint_truncated_text(stream, line, rect.width)?;
+
+            num_painted_lines += 1;
+            last_before_cursor_line_length = line.graphemes(true).count();
         }
 
-        paint_empty_lines(
-            stream,
-            Rect {
-                top: row,
-                left: rect.left,
-                width: rect.width,
-                height: rect.height - row + 1,
-            },
-        )?;
-
-        if self.has_focus {
-            let header_height = 1u16;
-            let visible_cursor_position = (
-                rect.left + u16::try_from(self.file_cursor_position.0).unwrap(),
-                rect.top
-                    + u16::try_from(self.file_cursor_position.1 - self.start_line).unwrap()
-                    + header_height,
-            );
+        // Draw the cursor
+        let draw_cursor = self.has_focus
+            && current_line_index >= num_lines_to_skip
+            && last_before_cursor_line_length < rect.width as usize;
+        if draw_cursor {
+            let column_offset = u16::try_from(last_before_cursor_line_length).unwrap();
             write!(
                 stream,
                 "{}{} {}",
-                termion::cursor::Goto(visible_cursor_position.0, visible_cursor_position.1),
+                termion::cursor::Goto(
+                    rect.left + column_offset,
+                    rect.top + 1 + row_offset(current_line_index, num_lines_to_skip)
+                ),
                 termion::color::Bg(termion::color::White),
-                termion::color::Bg(termion::color::Reset),
+                termion::color::Bg(termion::color::Reset)
+            )?;
+        }
+
+        let after_cursor_lines = after_cursor.lines();
+        let first_column_offset = u16::try_from(last_before_cursor_line_length).unwrap();
+        let mut first = true;
+        for line in after_cursor_lines {
+            if !first {
+                current_line_index += 1;
+            }
+
+            if current_line_index < num_lines_to_skip {
+                continue;
+            }
+
+            let (column_offset, line_offset) = if first {
+                if draw_cursor {
+                    (first_column_offset + 1, 1usize)
+                } else {
+                    (first_column_offset, 0usize)
+                }
+            } else {
+                (0u16, 0usize)
+            };
+
+            let first_char_to_paint = line.grapheme_indices(true).nth(line_offset);
+            match first_char_to_paint {
+                Some((i, _)) => {
+                    write!(
+                        stream,
+                        "{}",
+                        termion::cursor::Goto(
+                            rect.left + column_offset,
+                            rect.top + 1 + row_offset(current_line_index, num_lines_to_skip)
+                        )
+                    )?;
+                    paint_truncated_text(stream, &line[i..], rect.width)?;
+                }
+                None => {}
+            }
+
+            num_painted_lines += 1;
+            first = false;
+        }
+
+        if num_painted_lines < total_num_lines {
+            let row_offset = row_offset(current_line_index, num_lines_to_skip);
+            paint_empty_lines(
+                stream,
+                Rect {
+                    top: rect.top + 1 + row_offset,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height - row_offset + 1,
+                },
             )?;
         }
 
@@ -174,22 +251,30 @@ impl Component for FileViewComponent {
             },
             termion::event::Event::Key(key) => match key {
                 termion::event::Key::Down => {
-                    self.file_cursor_position.1 += 1;
                     self.needs_paint.set(true);
                     true
                 }
                 termion::event::Key::Left => {
-                    self.file_cursor_position.0 -= 1;
+                    self.buffer.move_cursor_left(1);
                     self.needs_paint.set(true);
                     true
                 }
                 termion::event::Key::Right => {
-                    self.file_cursor_position.0 += 1;
+                    self.buffer.move_cursor_right(1);
                     self.needs_paint.set(true);
                     true
                 }
                 termion::event::Key::Up => {
-                    self.file_cursor_position.1 -= 1;
+                    self.needs_paint.set(true);
+                    true
+                }
+                termion::event::Key::Char(c) => {
+                    self.buffer.insert_at_cursor(&c.to_string());
+                    self.needs_paint.set(true);
+                    true
+                }
+                termion::event::Key::Backspace => {
+                    self.buffer.delete_at_cursor(1);
                     self.needs_paint.set(true);
                     true
                 }

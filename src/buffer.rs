@@ -134,6 +134,11 @@ impl Buffer {
         self.left_string_range.end = target_cursor_buffer_index;
     }
 
+    pub fn delete_all(&mut self) {
+        self.left_string_range = 0..0;
+        self.right_string_range = self.buffer.len()..self.buffer.len()
+    }
+
     pub fn move_cursor(&mut self, offset: isize) {
         if offset < 0 {
             self.move_cursor_left(-offset as usize);

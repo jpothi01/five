@@ -262,6 +262,7 @@ impl Component for FileViewComponent {
             },
             termion::event::Event::Key(key) => match key {
                 termion::event::Key::Down => {
+                    self.buffer.move_cursor_down();
                     self.needs_paint.set(true);
                     true
                 }

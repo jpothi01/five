@@ -174,6 +174,51 @@ impl Buffer {
         self.move_cursor_left_to(target_cursor_buffer_index);
     }
 
+    pub fn move_cursor_down(&mut self) {
+        // Algorithm should be:
+        // - Figure out what column the cursor is at
+        // - Split by lines and examine the number_of_lines's line
+        // - If the line has enough columns, move to that column, else move to the end of the line
+        let (left, right) = self.get();
+        let mut newline_indices = right.char_indices().filter(|(_, c)| *c == '\n');
+        let maybe_target_line_begin_index = newline_indices.nth(0);
+        if maybe_target_line_begin_index.is_none() {
+            return;
+        }
+
+        debug_assert!(right.len() > maybe_target_line_begin_index.unwrap().0 + 1);
+        let target_line_begin_index = maybe_target_line_begin_index.unwrap().0 + 1;
+        let target_line = match newline_indices.nth(1) {
+            Some((i, _)) => &right[target_line_begin_index..i],
+            None => &right[target_line_begin_index..],
+        };
+
+        let current_line = match left.rfind("\n") {
+            Some(i) => {
+                if left.len() > 1 {
+                    &left[(i + 1)..]
+                } else {
+                    ""
+                }
+            }
+            None => left,
+        };
+        let current_column = current_line.graphemes(true).count();
+        let target_index = target_line.grapheme_indices(true).nth(current_column);
+        let target_cursor_offset_from_target_line = match target_index {
+            Some((i, _)) => i,
+            None => target_line
+                .grapheme_indices(true)
+                .last()
+                .map_or(0, |(i, _)| i),
+        };
+        self.move_cursor_right_to(
+            self.right_string_range.start
+                + target_cursor_offset_from_target_line
+                + target_line_begin_index,
+        );
+    }
+
     pub fn move_cursor_to_beginning(&mut self) {
         self.move_cursor_left_to(0);
     }
